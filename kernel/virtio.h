@@ -49,7 +49,7 @@
 
 // a single descriptor, from the spec.
 struct virtq_desc {
-  uint64 addr;
+  uint32 addr;
   uint32 len;
   uint16 flags;
   uint16 next;
@@ -90,5 +90,5 @@ struct virtq_used {
 struct virtio_blk_req {
   uint32 type; // VIRTIO_BLK_T_IN or ..._OUT
   uint32 reserved;
-  uint64 sector;
+  uint32 sector;
 };
