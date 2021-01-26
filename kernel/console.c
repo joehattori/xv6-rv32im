@@ -27,17 +27,22 @@
 
 //
 // send one character to the uart.
-// called by printf, and to echo input characters,
-// but not from write().
 //
 void
 consputc(int c)
 {
+  extern volatile int panicked; // from printf.c
+
+  if(panicked){
+    for(;;)
+      ;
+  }
+
   if(c == BACKSPACE){
     // if the user typed backspace, overwrite with a space.
-    uartputc_sync('\b'); uartputc_sync(' '); uartputc_sync('\b');
+    uartputc('\b'); uartputc(' '); uartputc('\b');
   } else {
-    uartputc_sync(c);
+    uartputc(c);
   }
 }
 
@@ -60,14 +65,16 @@ consolewrite(int user_src, uint32 src, int n)
 {
   int i;
 
+  acquire(&cons.lock);
   for(i = 0; i < n; i++){
     char c;
     if(either_copyin(&c, user_src, src+i, 1) == -1)
       break;
-    uartputc(c);
+    consputc(c);
   }
+  release(&cons.lock);
 
-  return i;
+  return n;
 }
 
 //

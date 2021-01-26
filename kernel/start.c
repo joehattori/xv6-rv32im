@@ -10,8 +10,8 @@ void timerinit();
 // entry.S needs one stack per CPU.
 __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 
-// a scratch area per CPU for machine-mode timer interrupts.
-uint32 timer_scratch[NCPU][5];
+// scratch area for timer interrupt, one per CPU.
+uint32 mscratch0[NCPU * 32];
 
 // assembly code in kernelvec.S for machine-mode timer interrupt.
 extern void timervec();
@@ -21,7 +21,7 @@ void
 start()
 {
   // set M Previous Privilege mode to Supervisor, for mret.
-  uint32 x = r_mstatus();
+  unsigned long x = r_mstatus();
   x &= ~MSTATUS_MPP_MASK;
   x |= MSTATUS_MPP_S;
   w_mstatus(x);
@@ -36,7 +36,6 @@ start()
   // delegate all interrupts and exceptions to supervisor mode.
   w_medeleg(0xffff);
   w_mideleg(0xffff);
-  w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
   // ask for clock interrupts.
   timerinit();
@@ -64,12 +63,12 @@ timerinit()
   *(uint32*)CLINT_MTIMECMP(id) = *(uint32*)CLINT_MTIME + interval;
 
   // prepare information in scratch[] for timervec.
-  // scratch[0..2] : space for timervec to save registers.
-  // scratch[3] : address of CLINT MTIMECMP register.
-  // scratch[4] : desired interval (in cycles) between timer interrupts.
-  uint32 *scratch = &timer_scratch[id][0];
-  scratch[3] = CLINT_MTIMECMP(id);
-  scratch[4] = interval;
+  // scratch[0..3] : space for timervec to save registers.
+  // scratch[4] : address of CLINT MTIMECMP register.
+  // scratch[5] : desired interval (in cycles) between timer interrupts.
+  uint32 *scratch = &mscratch0[32 * id];
+  scratch[4] = CLINT_MTIMECMP(id);
+  scratch[5] = interval;
   w_mscratch((uint32)scratch);
 
   // set the machine-mode trap handler.

@@ -1,7 +1,12 @@
-	# qemu -kernel loads the kernel at 0x80000000
-        # and causes each CPU to jump there.
-        # kernel.ld causes the following code to
-        # be placed at 0x80000000.
+	# qemu -kernel starts at 0x1000. the instructions
+        # there seem to be provided by qemu, as if it
+        # were a ROM. the code at 0x1000 jumps to
+        # 0x8000000, the _start function here,
+        # in machine mode. each CPU starts here.
+.section .data
+.globl stack0
+.section .text
+.globl start
 .section .text
 .globl _entry
 _entry:
@@ -17,5 +22,5 @@ _entry:
         add sp, sp, a0
 	# jump to start() in start.c
         call start
-spin:
-        j spin
+junk:
+        j junk

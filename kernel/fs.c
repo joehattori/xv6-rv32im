@@ -22,6 +22,7 @@
 #include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
+static void itrunc(struct inode*);
 // there should be one superblock per disk device, but we run with
 // only one device
 struct superblock sb; 
@@ -113,9 +114,9 @@ bfree(int dev, uint b)
 // sb.startinode. Each inode has a number, indicating its
 // position on the disk.
 //
-// The kernel keeps a table of in-use inodes in memory
+// The kernel keeps a cache of in-use inodes in memory
 // to provide a place for synchronizing access
-// to inodes used by multiple processes. The in-memory
+// to inodes used by multiple processes. The cached
 // inodes include book-keeping information that is
 // not stored on disk: ip->ref and ip->valid.
 //
@@ -127,15 +128,15 @@ bfree(int dev, uint b)
 //   is non-zero. ialloc() allocates, and iput() frees if
 //   the reference and link counts have fallen to zero.
 //
-// * Referencing in table: an entry in the inode table
+// * Referencing in cache: an entry in the inode cache
 //   is free if ip->ref is zero. Otherwise ip->ref tracks
 //   the number of in-memory pointers to the entry (open
 //   files and current directories). iget() finds or
-//   creates a table entry and increments its ref; iput()
+//   creates a cache entry and increments its ref; iput()
 //   decrements ref.
 //
 // * Valid: the information (type, size, &c) in an inode
-//   table entry is only correct when ip->valid is 1.
+//   cache entry is only correct when ip->valid is 1.
 //   ilock() reads the inode from
 //   the disk and sets ip->valid, while iput() clears
 //   ip->valid if ip->ref has fallen to zero.
@@ -156,16 +157,16 @@ bfree(int dev, uint b)
 // and only lock it for short periods (e.g., in read()).
 // The separation also helps avoid deadlock and races during
 // pathname lookup. iget() increments ip->ref so that the inode
-// stays in the table and pointers to it remain valid.
+// stays cached and pointers to it remain valid.
 //
 // Many internal file system functions expect the caller to
 // have locked the inodes involved; this lets callers create
 // multi-step atomic operations.
 //
-// The itable.lock spin-lock protects the allocation of itable
+// The icache.lock spin-lock protects the allocation of icache
 // entries. Since ip->ref indicates whether an entry is free,
 // and ip->dev and ip->inum indicate which i-node an entry
-// holds, one must hold itable.lock while using any of those fields.
+// holds, one must hold icache.lock while using any of those fields.
 //
 // An ip->lock sleep-lock protects all ip-> fields other than ref,
 // dev, and inum.  One must hold ip->lock in order to
@@ -174,16 +175,16 @@ bfree(int dev, uint b)
 struct {
   struct spinlock lock;
   struct inode inode[NINODE];
-} itable;
+} icache;
 
 void
 iinit()
 {
   int i = 0;
   
-  initlock(&itable.lock, "itable");
+  initlock(&icache.lock, "icache");
   for(i = 0; i < NINODE; i++) {
-    initsleeplock(&itable.inode[i].lock, "inode");
+    initsleeplock(&icache.inode[i].lock, "inode");
   }
 }
 
@@ -216,7 +217,7 @@ ialloc(uint dev, short type)
 
 // Copy a modified in-memory inode to disk.
 // Must be called after every change to an ip->xxx field
-// that lives on disk.
+// that lives on disk, since i-node cache is write-through.
 // Caller must hold ip->lock.
 void
 iupdate(struct inode *ip)
@@ -244,21 +245,21 @@ iget(uint dev, uint inum)
 {
   struct inode *ip, *empty;
 
-  acquire(&itable.lock);
+  acquire(&icache.lock);
 
-  // Is the inode already in the table?
+  // Is the inode already cached?
   empty = 0;
-  for(ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++){
+  for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){
     if(ip->ref > 0 && ip->dev == dev && ip->inum == inum){
       ip->ref++;
-      release(&itable.lock);
+      release(&icache.lock);
       return ip;
     }
     if(empty == 0 && ip->ref == 0)    // Remember empty slot.
       empty = ip;
   }
 
-  // Recycle an inode entry.
+  // Recycle an inode cache entry.
   if(empty == 0)
     panic("iget: no inodes");
 
@@ -267,7 +268,7 @@ iget(uint dev, uint inum)
   ip->inum = inum;
   ip->ref = 1;
   ip->valid = 0;
-  release(&itable.lock);
+  release(&icache.lock);
 
   return ip;
 }
@@ -277,9 +278,9 @@ iget(uint dev, uint inum)
 struct inode*
 idup(struct inode *ip)
 {
-  acquire(&itable.lock);
+  acquire(&icache.lock);
   ip->ref++;
-  release(&itable.lock);
+  release(&icache.lock);
   return ip;
 }
 
@@ -323,7 +324,7 @@ iunlock(struct inode *ip)
 }
 
 // Drop a reference to an in-memory inode.
-// If that was the last reference, the inode table entry can
+// If that was the last reference, the inode cache entry can
 // be recycled.
 // If that was the last reference and the inode has no links
 // to it, free the inode (and its content) on disk.
@@ -332,7 +333,7 @@ iunlock(struct inode *ip)
 void
 iput(struct inode *ip)
 {
-  acquire(&itable.lock);
+  acquire(&icache.lock);
 
   if(ip->ref == 1 && ip->valid && ip->nlink == 0){
     // inode has no links and no other references: truncate and free.
@@ -341,7 +342,7 @@ iput(struct inode *ip)
     // so this acquiresleep() won't block (or deadlock).
     acquiresleep(&ip->lock);
 
-    release(&itable.lock);
+    release(&icache.lock);
 
     itrunc(ip);
     ip->type = 0;
@@ -350,11 +351,11 @@ iput(struct inode *ip)
 
     releasesleep(&ip->lock);
 
-    acquire(&itable.lock);
+    acquire(&icache.lock);
   }
 
   ip->ref--;
-  release(&itable.lock);
+  release(&icache.lock);
 }
 
 // Common idiom: unlock, then put.
@@ -405,8 +406,11 @@ bmap(struct inode *ip, uint bn)
 }
 
 // Truncate inode (discard contents).
-// Caller must hold ip->lock.
-void
+// Only called when the inode has no links
+// to it (no directory entries referring to it)
+// and has no in-memory reference to it (is
+// not an open file or current directory).
+static void
 itrunc(struct inode *ip)
 {
   int i, j;
@@ -459,7 +463,7 @@ readi(struct inode *ip, int user_dst, uint32 dst, uint off, uint n)
   struct buf *bp;
 
   if(off > ip->size || off + n < off)
-    return 0;
+    return -1;
   if(off + n > ip->size)
     n = ip->size - off;
 
@@ -468,21 +472,17 @@ readi(struct inode *ip, int user_dst, uint32 dst, uint off, uint n)
     m = min(n - tot, BSIZE - off%BSIZE);
     if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
       brelse(bp);
-      tot = -1;
       break;
     }
     brelse(bp);
   }
-  return tot;
+  return n;
 }
 
 // Write data to inode.
 // Caller must hold ip->lock.
 // If user_src==1, then src is a user virtual address;
 // otherwise, src is a kernel address.
-// Returns the number of bytes successfully written.
-// If the return value is less than the requested n,
-// there was an error of some kind.
 int
 writei(struct inode *ip, int user_src, uint32 src, uint off, uint n)
 {
@@ -505,15 +505,16 @@ writei(struct inode *ip, int user_src, uint32 src, uint off, uint n)
     brelse(bp);
   }
 
-  if(off > ip->size)
-    ip->size = off;
+  if(n > 0){
+    if(off > ip->size)
+      ip->size = off;
+    // write the i-node back to disk even if the size didn't change
+    // because the loop above might have called bmap() and added a new
+    // block to ip->addrs[].
+    iupdate(ip);
+  }
 
-  // write the i-node back to disk even if the size didn't change
-  // because the loop above might have called bmap() and added a new
-  // block to ip->addrs[].
-  iupdate(ip);
-
-  return tot;
+  return n;
 }
 
 // Directories

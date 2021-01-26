@@ -52,7 +52,6 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, int, uint32, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint32, uint, uint);
-void            itrunc(struct inode*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -62,13 +61,13 @@ void            ramdiskrw(struct buf*);
 // kalloc.c
 void*           kalloc(void);
 void            kfree(void *);
-void            kinit(void);
+void            kinit();
 
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
-void            begin_op(void);
-void            end_op(void);
+void            begin_op();
+void            end_op();
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
@@ -86,7 +85,6 @@ int             cpuid(void);
 void            exit(int);
 int             fork(void);
 int             growproc(int);
-void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint32);
 int             kill(int);
@@ -151,13 +149,13 @@ void            usertrapret(void);
 void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
-void            uartputc_sync(int);
 int             uartgetc(void);
 
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
-void            kvmmap(pagetable_t, uint32, uint32, uint32, int);
+uint32          kvmpa(uint32);
+void            kvmmap(uint32, uint32, uint32, int);
 int             mappages(pagetable_t, uint32, uint32, uint32, int);
 pagetable_t     uvmcreate(void);
 void            uvminit(pagetable_t, uchar *, uint);
@@ -175,13 +173,14 @@ int             copyinstr(pagetable_t, char *, uint32, uint32);
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
+uint32          plic_pending(void);
 int             plic_claim(void);
 void            plic_complete(int);
 
 // virtio_disk.c
 void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
-void            virtio_disk_intr(void);
+void            virtio_disk_intr();
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
