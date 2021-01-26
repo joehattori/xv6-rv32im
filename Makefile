@@ -30,25 +30,25 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o
 
-# riscv64-unknown-elf- or riscv64-linux-gnu-
+# riscv32-unknown-elf- or riscv32-linux-gnu-
 # perhaps in /opt/riscv/bin
-#TOOLPREFIX = 
+TOOLPREFIX = riscv32-unknown-elf-
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
-TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-unknown-elf-'; \
-	elif riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-linux-gnu-'; \
-	elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-unknown-linux-gnu-'; \
+TOOLPREFIX := $(shell if riscv32-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv32-unknown-elf-'; \
+	elif riscv32-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv32-linux-gnu-'; \
+	elif riscv32-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv32-unknown-linux-gnu-'; \
 	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find a riscv64 version of GCC/binutils." 1>&2; \
+	echo "*** Error: Couldn't find a riscv32 version of GCC/binutils." 1>&2; \
 	echo "*** To turn off this error, run 'gmake TOOLPREFIX= ...'." 1>&2; \
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-QEMU = qemu-system-riscv64
+QEMU = qemu-system-riscv32
 
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gas
@@ -79,7 +79,7 @@ $K/kernel: $(OBJS) $K/kernel.ld $U/initcode
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
 $U/initcode: $U/initcode.S
-	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
+	$(CC) $(CFLAGS) -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
 	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
 	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
@@ -153,14 +153,13 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 3
+CPUS := 1
 endif
 
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 1024M -smp $(CPUS) -nographic
+QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-qemu: $K/kernel fs.img
+qemu:
 	$(QEMU) $(QEMUOPTS)
 
 .gdbinit: .gdbinit.tmpl-riscv
@@ -170,3 +169,5 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+run-docker:
+	docker run -it -v $(PWD):/work --rm joehattori/xv6-rv32im:latest bash

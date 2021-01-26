@@ -8,6 +8,12 @@
 #include "proc.h"
 #include "defs.h"
 
+uint test_and_set(uint *locked) {
+  uint old = *locked;
+  *locked = 1;
+  return old;
+}
+
 void
 initlock(struct spinlock *lk, char *name)
 {
@@ -29,8 +35,8 @@ acquire(struct spinlock *lk)
   //   a5 = 1
   //   s1 = &lk->locked
   //   amoswap.w.aq a5, a5, (s1)
-  while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
-    ;
+  // while(__sync_lock_test_and_set(&lk->locked, 1) != 0);
+  while(test_and_set(&lk->locked) != 0);
 
   // Tell the C compiler and the processor to not move loads or stores
   // past this point, to ensure that the critical section's memory
@@ -66,7 +72,8 @@ release(struct spinlock *lk)
   // On RISC-V, sync_lock_release turns into an atomic swap:
   //   s1 = &lk->locked
   //   amoswap.w zero, zero, (s1)
-  __sync_lock_release(&lk->locked);
+  // __sync_lock_release(&lk->locked);
+  lk->locked = 0;
 
   pop_off();
 }
