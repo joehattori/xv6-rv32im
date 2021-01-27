@@ -24,7 +24,7 @@ void
 kvminit()
 {
   kernel_pagetable = (pagetable_t) kalloc();
-  if (kernel_pagetable == 0) { 
+  if (kernel_pagetable == 0) {
     printf("kalloc failed\n");
   }
   memset(kernel_pagetable, 0, PGSIZE);
@@ -66,7 +66,7 @@ kvminithart()
 // create any required page-table pages.
 //
 // The risc-v Sv39 scheme has three levels of page-table
-// pages. A page-table page contains 512 64-bit PTEs.
+// pages. A page-table page contains 1024 64-bit PTEs.
 // A 64-bit virtual address is split into five fields:
 //   39..63 -- must be zero.
 //   30..38 -- 9 bits of level-2 index.
@@ -87,7 +87,7 @@ kvminithart()
 //   10..19 -- 12 bits of level-0 index.
 //    8.. 9 --  2 bits reserved for OS
 //    0.. 7 -- flags: Valid/Read/Write/Execute/User/Global/Accessed/Dirty
-// 
+//
 
 static pte_t *
 walk(pagetable_t pagetable, uint32 va, int alloc)
@@ -152,7 +152,7 @@ kvmpa(uint32 va)
   uint32 off = va % PGSIZE;
   pte_t *pte;
   uint32 pa;
-  
+
   pte = walk(kernel_pagetable, va, 0);
   if(pte == 0)
     panic("kvmpa");
@@ -300,8 +300,8 @@ uvmdealloc(pagetable_t pagetable, uint32 oldsz, uint32 newsz)
 static void
 freewalk(pagetable_t pagetable)
 {
-  // there are 2^9 = 512 PTEs in a page table.
-  for(int i = 0; i < 512; i++){
+  // there are 2^10 = 1024 PTEs in a page table.
+  for(int i = 0; i < 1024; i++){
     pte_t pte = pagetable[i];
     if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
       // this PTE points to a lower-level page table.
@@ -366,7 +366,7 @@ void
 uvmclear(pagetable_t pagetable, uint32 va)
 {
   pte_t *pte;
-  
+
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("uvmclear");

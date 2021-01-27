@@ -8,10 +8,10 @@
 #include "proc.h"
 #include "defs.h"
 
-int test_and_set(uint *locked) {
-  int old = *locked;
-  *locked = 1;
-  return old;
+uint test_and_set(uint *locked) {
+    uint prev = *locked;
+    *locked = 1;
+    return prev;
 }
 
 void
