@@ -152,15 +152,20 @@ GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
-ifndef CPUS
+
 CPUS := 1
-endif
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 1024M -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+QEMUOPTS += -netdev user,id=net0,hostfwd=tcp::8080-:80 -object filter-dump,id=net0,netdev=net0,file=dump.pcap
+QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
+QEMUOPTS += -monitor unix:qemu-monitor-socket,server,nowait
 
-qemu:
+qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
+
+monitor:
+	socat -,echo=0,icanon=0 unix-connect:qemu-monitor-socket
 
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
