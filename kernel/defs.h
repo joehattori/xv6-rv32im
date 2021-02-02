@@ -70,6 +70,9 @@ void            log_write(struct buf*);
 void            begin_op(void);
 void            end_op(void);
 
+// pci.c
+void            pci_init();
+
 // pipe.c
 int             pipealloc(struct file**, struct file**);
 void            pipeclose(struct pipe*, int);
@@ -139,6 +142,9 @@ int             argaddr(int, uint32 *);
 int             fetchstr(uint32, char*, int);
 int             fetchaddr(uint32, uint32*);
 void            syscall();
+
+// socket.c
+
 
 // trap.c
 extern uint     ticks;
