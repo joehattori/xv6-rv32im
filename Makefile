@@ -10,6 +10,7 @@ OBJS = \
   $K/kalloc.o \
   $K/spinlock.o \
   $K/string.o \
+  $K/e1000.o \
   $K/pci.o \
   $K/main.o \
   $K/vm.o \

@@ -46,6 +46,9 @@ kvmmake(void)
   // map PCIe ECAM config space.
   kvmmap(kpgtbl, 0x30000000, 0x30000000, 0x10000000, PTE_R | PTE_W);
 
+  // e1000's registers
+  kvmmap(kpgtbl, 0x40000000, 0x40000000, 0x20000, PTE_R | PTE_W);
+
   // map kernel stacks
   proc_mapstacks(kpgtbl);
   

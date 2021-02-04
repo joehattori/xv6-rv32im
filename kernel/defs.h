@@ -22,6 +22,10 @@ void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
+// e1000.c
+void            e1000_init(uint32*);
+int             e1000_send_frame(void*, ushort);
+
 // exec.c
 int             exec(char*, char**);
 
