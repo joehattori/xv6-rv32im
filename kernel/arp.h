@@ -1,3 +1,5 @@
+#pragma once
+
 #include "mbuf.h"
 
 struct arp {

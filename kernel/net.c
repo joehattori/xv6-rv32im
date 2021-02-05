@@ -5,6 +5,9 @@
 #include "ethernet.h"
 #include "ip.h"
 
+const uint32 local_ip_addr = ((10 << 24) | (0 << 16) | (2 << 8) | (15 << 0));
+const uint8 local_mac_addr[6] = {0x52, 0x54, 0x0, 0x12, 0x34, 0x56};
+
 uint16
 toggle_endian16(uint16 v)
 {

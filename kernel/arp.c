@@ -12,11 +12,8 @@
 #define ETH_HLEN   6
 #define IPV4_PLEN  4
 
-static uint32 local_ip_addr = (10 << 24) | (0 << 16) | (2 << 8) | (15 << 0);
-static uint8 local_mac_addr[] = {0x52, 0x54, 0x0, 0x12, 0x34, 0x56};
-
 static int
-arp_tx(uint16 op, uint8 dmac[6], uint32 dst_ip)
+arp_tx(uint16 op, uint8 dst_mac[6], uint32 dst_ip)
 {
   struct mbuf *m = mbuf_alloc(MBUF_DEFAULT_HEADROOM);
   if (!m)
@@ -29,9 +26,9 @@ arp_tx(uint16 op, uint8 dmac[6], uint32 dst_ip)
   arp_hdr->oper = toggle_endian16(op);
   memmove(arp_hdr->sha, local_mac_addr, 6);
   arp_hdr->spa = toggle_endian32(local_ip_addr);
-  memmove(arp_hdr->tha, dmac, 6);
+  memmove(arp_hdr->tha, dst_mac, 6);
   arp_hdr->tpa = toggle_endian32(dst_ip);
-  ethernet_tx(m, ETH_TYPE_ARP);
+  ethernet_tx(m, ETH_TYPE_ARP, dst_mac);
   return 0;
 }
 

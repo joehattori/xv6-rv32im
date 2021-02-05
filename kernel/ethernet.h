@@ -1,3 +1,5 @@
+#pragma once
+
 #include "types.h"
 #include "mbuf.h"
 
@@ -5,9 +7,9 @@
 #define ETH_TYPE_ARP  0x806
 
 struct ethernet_hdr {
-  uint64 dst_mac: 48;
-  uint64 src_mac: 48;
+  uint8 dst_mac[6];
+  uint8 src_mac[6];
   uint16 type;
 } __attribute__((packed));
 
-void ethernet_tx(struct mbuf*, uint);
+void ethernet_tx(struct mbuf*, uint16, const uint8[6]);
