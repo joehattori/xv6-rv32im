@@ -54,3 +54,14 @@ mbuf_trim(struct mbuf *m, uint len)
   m->len -= len;
   return m->head + m->len;
 }
+
+struct mbuf *
+mbuf_get_tail(struct mbuf *m)
+{
+  struct mbuf *cur = m;
+  while (1) {
+    if (cur->nxt == 0)
+      return cur;
+    cur = cur->nxt;
+  }
+}

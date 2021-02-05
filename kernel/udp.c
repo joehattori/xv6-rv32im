@@ -25,5 +25,5 @@ udp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
   uint32 src_ip_addr = iphdr->src_ip_addr;
   uint16 src_port = udphdr->src_port;
   uint16 dst_port = udphdr->dst_port;
-  sock_recv_udp(m, src_ip_addr, src_port, dst_port);
+  socket_recv_udp(m, src_ip_addr, src_port, dst_port);
 }

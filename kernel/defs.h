@@ -155,7 +155,7 @@ int             fetchaddr(uint32, uint32*);
 void            syscall();
 
 // socket.c
-void            sock_recv_udp(struct mbuf*, uint32, uint16, uint16);
+void            socket_recv_udp(struct mbuf*, uint32, uint16, uint16);
 
 // trap.c
 extern uint     ticks;

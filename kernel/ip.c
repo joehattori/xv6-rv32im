@@ -17,7 +17,7 @@ void
 ip_rx(struct mbuf *m)
 {
   struct ip_hdr *hdr = (struct ip_hdr*)mbuf_pop(m, sizeof(struct ip_hdr*));
-  uint16 len = toggle_endian(hdr->len) - sizeof(*hdr);
+  uint16 len = toggle_endian16(hdr->len) - sizeof(*hdr);
   if (!is_ip_packet_valid(hdr)) {
     printf("invalid packet");
     return;
