@@ -14,4 +14,11 @@ struct arp {
   uint32 tpa;
 } __attribute__((packed));
 
+struct arp_entry {
+  uchar  used;
+  uint32 ip_addr;
+  uint8  mac_addr[6];
+};
+
 void arp_rx(struct mbuf*);
+uint arp_resolve(uint32, uint8*);

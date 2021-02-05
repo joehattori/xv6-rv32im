@@ -28,7 +28,7 @@ static struct socket *sockets;
 static struct spinlock lock;
 
 void
-socket_init()
+socket_init(void)
 {
   initlock(&lock, "socket");
 }

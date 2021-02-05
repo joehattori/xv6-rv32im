@@ -17,4 +17,5 @@ struct ip_hdr {
   uint32 dst_ip_addr;
 } __attribute__((packed));
 
+void ip_tx(struct mbuf*, uint32, uint8);
 void ip_rx(struct mbuf*);

@@ -4,12 +4,20 @@
 #include "udp.h"
 #include "defs.h"
 
+#define IP_PROTO_UDP 17
+
 static uint
 is_udp_packet_valid(struct udp_hdr *hdr)
 {
   // TODO: check validity.
   // just return 1 for now.
   return 1;
+}
+
+void
+udp_tx(struct mbuf *m, uint32 dst_ip, uint16 src_port, uint16 dst_port)
+{
+  ip_tx(m, dst_ip, IP_PROTO_UDP);
 }
 
 void

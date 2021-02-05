@@ -10,4 +10,5 @@ struct udp_hdr {
   uint16 checksum;
 };
 
+void udp_tx(struct mbuf*, uint32, uint16, uint16);
 void udp_rx(struct mbuf*, uint16, struct ip_hdr*);

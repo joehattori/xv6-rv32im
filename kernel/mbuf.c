@@ -36,6 +36,25 @@ mbuf_append(struct mbuf *m, uint len)
 }
 
 char *
+mbuf_trim(struct mbuf *m, uint len)
+{
+  if (len > m->len)
+    return 0;
+  m->len -= len;
+  return m->head + m->len;
+}
+
+char *
+mbuf_prepend(struct mbuf *m, uint len)
+{
+  m->head -= len;
+  if (m->head < m->buf)
+    panic("mbuf_prepend");
+  m->len += len;
+  return m->head;
+}
+
+char *
 mbuf_pop(struct mbuf *m, uint len)
 {
   char *ret = m->head - m->len;
@@ -44,15 +63,6 @@ mbuf_pop(struct mbuf *m, uint len)
     return 0;
   m->head += len;
   return ret;
-}
-
-char *
-mbuf_trim(struct mbuf *m, uint len)
-{
-  if (len > m->len)
-    return 0;
-  m->len -= len;
-  return m->head + m->len;
 }
 
 struct mbuf *
