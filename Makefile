@@ -10,6 +10,13 @@ OBJS = \
   $K/kalloc.o \
   $K/spinlock.o \
   $K/string.o \
+  $K/ip.o \
+  $K/arp.o \
+  $K/udp.o \
+  $K/mbuf.o \
+  $K/ethernet.o \
+  $K/net.o \
+  $K/socket.o \
   $K/e1000.o \
   $K/pci.o \
   $K/main.o \

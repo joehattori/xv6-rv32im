@@ -1,9 +1,16 @@
+#pragma once
+
+#include "types.h"
+#include "riscv.h"
+
 struct buf;
 struct context;
 struct file;
 struct inode;
+struct mbuf;
 struct pipe;
 struct proc;
+struct socket;
 struct spinlock;
 struct sleeplock;
 struct stat;
@@ -24,7 +31,7 @@ void            consputc(int);
 
 // e1000.c
 void            e1000_init(uint32*);
-int             e1000_send_frame(void*, ushort);
+int             e1000_send(struct mbuf*);
 
 // exec.c
 int             exec(char*, char**);
@@ -148,7 +155,7 @@ int             fetchaddr(uint32, uint32*);
 void            syscall();
 
 // socket.c
-
+void            sock_recv_udp(struct mbuf*, uint32, uint16, uint16);
 
 // trap.c
 extern uint     ticks;
@@ -187,6 +194,9 @@ void            plicinit(void);
 void            plicinithart(void);
 int             plic_claim(void);
 void            plic_complete(int);
+
+// net.c
+void            net_rx(struct mbuf*);
 
 // virtio_disk.c
 void            virtio_disk_init(void);

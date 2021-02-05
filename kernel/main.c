@@ -30,9 +30,6 @@ main()
     virtio_disk_init(); // emulated hard disk
     pci_init();         // pci
 
-    char *str = "joehattori";
-    e1000_send_frame(str, 10);
-
     userinit();      // first user process
     __sync_synchronize();
     started = 1;

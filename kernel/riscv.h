@@ -1,3 +1,7 @@
+#pragma once
+
+#include "types.h"
+
 // which hart (core) is this?
 static inline uint32
 r_mhartid()
