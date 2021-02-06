@@ -83,28 +83,6 @@ argstr(int n, char *buf, int max)
   return fetchstr(addr, buf, max);
 }
 
-extern uint32 sys_chdir(void);
-extern uint32 sys_close(void);
-extern uint32 sys_dup(void);
-extern uint32 sys_exec(void);
-extern uint32 sys_exit(void);
-extern uint32 sys_fork(void);
-extern uint32 sys_fstat(void);
-extern uint32 sys_getpid(void);
-extern uint32 sys_kill(void);
-extern uint32 sys_link(void);
-extern uint32 sys_mkdir(void);
-extern uint32 sys_mknod(void);
-extern uint32 sys_open(void);
-extern uint32 sys_pipe(void);
-extern uint32 sys_read(void);
-extern uint32 sys_sbrk(void);
-extern uint32 sys_sleep(void);
-extern uint32 sys_unlink(void);
-extern uint32 sys_wait(void);
-extern uint32 sys_write(void);
-extern uint32 sys_uptime(void);
-
 static uint32 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -127,6 +105,7 @@ static uint32 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_connect] sys_connect,
 };
 
 void

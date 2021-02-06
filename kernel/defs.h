@@ -32,6 +32,7 @@ void            consputc(int);
 // e1000.c
 void            e1000_init(uint32*);
 int             e1000_send(struct mbuf*);
+void            e1000_intr(void);
 
 // exec.c
 int             exec(char*, char**);
@@ -157,6 +158,7 @@ void            syscall();
 // socket.c
 void            socket_init(void);
 void            socket_recv_udp(struct mbuf*, uint32, uint16, uint16);
+int             socket_alloc(struct file**, uint32, uint16, uint16);
 
 // trap.c
 extern uint     ticks;

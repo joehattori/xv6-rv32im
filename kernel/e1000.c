@@ -161,7 +161,7 @@ e1000_recv(void)
 }
 
 void
-e1000_intr()
+e1000_intr(void)
 {
   e1000_recv();
   // read to ICR clears all the bits, which means to acknowledge any pending interrupt events.

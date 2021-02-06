@@ -484,3 +484,20 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint32
+sys_connect(void)
+{
+  struct file *f;
+  uint32 remote_ip_addr;
+  uint16 local_port, remote_port;
+  if (argint(0, (int*) &remote_ip_addr) || argint(1, (int*) &local_port) || argint(2, (int*) &remote_port))
+    return -1;
+  if (socket_alloc(&f, remote_ip_addr, local_port, remote_port) < 0)
+    return -1;
+  uint fd = fdalloc(f);
+  if (fd < 0) {
+    fileclose(f);
+  }
+  return fd;
+}
