@@ -22,7 +22,6 @@ ping(uint16 sport, uint16 dport, int attempts)
 
   char obuf[] = "joe";
   for(int i = 0; i < attempts; i++) {
-    printf("writing...\n");
     if(write(fd, obuf, sizeof(obuf)) < 0){
       fprintf(2, "ping: send() failed\n");
       exit(1);

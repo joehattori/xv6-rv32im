@@ -114,7 +114,7 @@ socket_read(struct socket *s, uint32 addr, uint len)
 
   release(&s->lock);
   mbuf_free(m);
-  return 0;
+  return len;
 }
 
 int

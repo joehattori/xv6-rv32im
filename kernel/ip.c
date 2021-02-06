@@ -72,11 +72,7 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
     memmove(dst_mac, ETHERNET_ADDR_BROADCAST, 6);
   }
 
-  __sync_synchronize();
-  printf("ip_tx begin\n");
   ethernet_tx(m, ETH_TYPE_IPV4, dst_mac);
-  __sync_synchronize();
-  printf("ip_tx end\n");
 }
 
 void

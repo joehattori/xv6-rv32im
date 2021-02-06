@@ -111,22 +111,24 @@ fileread(struct file *f, uint32 addr, int n)
   if(f->readable == 0)
     return -1;
 
-  if(f->type == FD_PIPE){
-    r = piperead(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
+  switch (f->type) {
+  case FD_PIPE:
+    return piperead(f->pipe, addr, n);
+  case FD_DEVICE:
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
       return -1;
-    r = devsw[f->major].read(1, addr, n);
-  } else if(f->type == FD_INODE){
+    return devsw[f->major].read(1, addr, n);
+  case FD_INODE:
     ilock(f->ip);
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
       f->off += r;
     iunlock(f->ip);
-  } else {
+    return r;
+  case FD_SOCKET:
+    return socket_read(f->sock, addr, n);
+  default:
     panic("fileread");
   }
-
-  return r;
 }
 
 // Write to file f.
