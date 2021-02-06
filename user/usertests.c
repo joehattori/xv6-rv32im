@@ -241,12 +241,12 @@ rwsbrk()
   
   uint32 a = (uint32) sbrk(8192);
 
-  if(a == 0xffffffffffffffffLL) {
+  if(a == 0xffffffff) {
     printf("sbrk(rwsbrk) failed\n");
     exit(1);
   }
   
-  if ((uint32) sbrk(-8192) ==  0xffffffffffffffffLL) {
+  if ((uint32) sbrk(-8192) ==  0xffffffff) {
     printf("sbrk(rwsbrk) shrink failed\n");
     exit(1);
   }
@@ -2095,14 +2095,13 @@ sbrkbasic(char *s)
   }
   if(pid == 0){
     a = sbrk(TOOMUCH);
-    if(a == (char*)0xffffffffffffffffL){
+    if(a == (char*)0xffffffff){
       // it's OK if this fails.
       exit(0);
     }
     
-    for(b = a; b < a+TOOMUCH; b += 4096){
+    for(b = a; b < a+TOOMUCH; b += 4096)
       *b = 99;
-    }
     
     // we should not get here! either sbrk(TOOMUCH)
     // should have failed, or (with lazy allocation)
@@ -2173,7 +2172,7 @@ sbrkmuch(char *s)
   // can one de-allocate?
   a = sbrk(0);
   c = sbrk(-PGSIZE);
-  if(c == (char*)0xffffffffffffffffL){
+  if(c == (char*)0xffffffff){
     printf("%s: sbrk could not deallocate\n", s);
     exit(1);
   }
@@ -2266,7 +2265,7 @@ sbrkfail(char *s)
     kill(pids[i]);
     wait(0);
   }
-  if(c == (char*)0xffffffffffffffffL){
+  if(c == (char*)0xffffffff){
     printf("%s: failed sbrk leaked memory\n", s);
     exit(1);
   }
@@ -2632,7 +2631,7 @@ execout(char *s)
       // allocate all of memory.
       while(1){
         uint32 a = (uint32) sbrk(4096);
-        if(a == 0xffffffffffffffffLL)
+        if(a == 0xffffffff)
           break;
         *(char*)(a + 4096 - 1) = 1;
       }
@@ -2682,9 +2681,8 @@ countfree()
     
     while(1){
       uint32 a = (uint32) sbrk(4096);
-      if(a == 0xffffffffffffffff){
+      if(a == 0xffffffff)
         break;
-      }
 
       // modify the memory to make sure it's really allocated.
       *(char *)(a + 4096 - 1) = 1;
@@ -2780,7 +2778,7 @@ main(int argc, char *argv[])
     {reparent2, "reparent2"},
     {pgbug, "pgbug" },
     {sbrkbugs, "sbrkbugs" },
-    // {badwrite, "badwrite" },
+    {badwrite, "badwrite" },
     {badarg, "badarg" },
     {reparent, "reparent" },
     {twochildren, "twochildren"},

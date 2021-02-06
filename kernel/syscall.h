@@ -1,7 +1,5 @@
 #pragma once
 
-#include "types.h"
-
 // System call numbers
 #define SYS_fork     1
 #define SYS_exit     2
@@ -25,26 +23,3 @@
 #define SYS_mkdir   20
 #define SYS_close   21
 #define SYS_connect 22
-
-uint32 sys_chdir(void);
-uint32 sys_close(void);
-uint32 sys_dup(void);
-uint32 sys_exec(void);
-uint32 sys_exit(void);
-uint32 sys_fork(void);
-uint32 sys_fstat(void);
-uint32 sys_getpid(void);
-uint32 sys_kill(void);
-uint32 sys_link(void);
-uint32 sys_mkdir(void);
-uint32 sys_mknod(void);
-uint32 sys_open(void);
-uint32 sys_pipe(void);
-uint32 sys_read(void);
-uint32 sys_sbrk(void);
-uint32 sys_sleep(void);
-uint32 sys_unlink(void);
-uint32 sys_wait(void);
-uint32 sys_write(void);
-uint32 sys_uptime(void);
-uint32 sys_connect(void);
