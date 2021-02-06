@@ -1,8 +1,11 @@
 #include "defs.h"
+#include "ethernet.h"
 #include "file.h"
+#include "ip.h"
 #include "mbuf.h"
 #include "spinlock.h"
 #include "types.h"
+#include "udp.h"
 
 struct socket {
   struct socket *nxt;
@@ -51,6 +54,64 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   s->nxt = sockets;
   sockets = s;
   release(&s->lock);
+  return 0;
+}
+
+int
+socket_close(struct socket *s)
+{
+  // TODO: wakeup?
+  acquire(&lock);
+  struct socket* shead = sockets;
+  if (!shead->nxt)
+    sockets = 0;
+  while (shead->nxt) {
+    if (shead == 0)
+      break;
+    if (shead->nxt->remote_ip_addr == s->remote_ip_addr &&
+      shead->nxt->local_port == s->local_port &&
+      shead->nxt->remote_port == s->remote_port) {
+      shead->nxt = s->nxt;
+      break;
+    }
+    shead = shead->nxt;
+  }
+  release(&lock);
+  kfree(s);
+  return 0;
+}
+
+int
+socket_read(struct socket *s, uint32 addr, uint len)
+{
+  struct proc *p = myproc();
+  acquire(&s->lock);
+  struct mbuf *m = s->mbufs;
+  if (len > m->len)
+    len = m->len;
+
+  if (copyout(p->pagetable, addr, m->head, len) < 0) {
+    release(&s->lock);
+    mbuf_free(m);
+    return -1;
+  }
+
+  release(&s->lock);
+  mbuf_free(m);
+  return 0;
+}
+
+int
+socket_write(struct socket *s, uint32 addr, uint len)
+{
+  struct proc *p = myproc();
+  struct mbuf *m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct udp_hdr));
+  mbuf_append(m, len);
+  if (copyin(p->pagetable, m->head, addr, len) < 0) {
+    mbuf_free(m);
+    return -1;
+  }
+  udp_tx(m, s->remote_ip_addr, s->local_port, s->remote_port);
   return 0;
 }
 
