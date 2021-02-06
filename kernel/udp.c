@@ -1,8 +1,9 @@
-#include "types.h"
-#include "mbuf.h"
-#include "ip.h"
-#include "udp.h"
 #include "defs.h"
+#include "ip.h"
+#include "mbuf.h"
+#include "net.h"
+#include "types.h"
+#include "udp.h"
 
 #define IP_PROTO_UDP 17
 
@@ -17,6 +18,11 @@ is_udp_packet_valid(struct udp_hdr *hdr)
 void
 udp_tx(struct mbuf *m, uint32 dst_ip, uint16 src_port, uint16 dst_port)
 {
+  struct udp_hdr *hdr = (struct udp_hdr*) mbuf_prepend(m, sizeof(struct udp_hdr));
+  hdr->src_port = toggle_endian16(src_port);
+  hdr->dst_port = toggle_endian16(dst_port);
+  hdr->len = toggle_endian16(m->len);
+  hdr->checksum = 0; // provide no checksum.
   ip_tx(m, dst_ip, IP_PROTO_UDP);
 }
 

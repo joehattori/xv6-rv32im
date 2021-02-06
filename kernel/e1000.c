@@ -48,7 +48,7 @@ set_e1000_regs(uint32 offset, uint32 data)
   *(uint32*)(regs_addr + offset) = data;
 }
 
-static uint tx_current_idx, rx_current_idx;
+static volatile uint tx_current_idx, rx_current_idx;
 
 static void
 e1000_tx_init()
@@ -122,7 +122,6 @@ e1000_send(struct mbuf *m)
     mbuf_free(tx_mbufs[tx_current_idx]);
   tx_mbufs[tx_current_idx] = m;
 
-  tx_current_idx = (tx_current_idx + 1) % TX_RING_SIZE;
   set_e1000_regs(E1000_TDT, (tx_current_idx + 1) % TX_RING_SIZE);
 
   // busy wait till DD bit in status field is 1.

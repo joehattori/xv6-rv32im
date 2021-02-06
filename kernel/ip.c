@@ -51,13 +51,15 @@ in_cksum(const uchar *addr, uint len)
 void
 ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
 {
-  struct ip_hdr *hdr = (struct ip_hdr*) mbuf_prepend(m, sizeof(struct ip_hdr*));
+  struct ip_hdr *hdr = (struct ip_hdr*) mbuf_prepend(m, sizeof(struct ip_hdr));
   memset(hdr, 0, sizeof(*hdr));
   hdr->ver = 4; // IPv4 version.
   hdr->hdr = 5;
+  hdr->tos = 0;
   hdr->len = toggle_endian16(m->len);
-  hdr->ttl = 100;
-  hdr->checksum = in_cksum((uchar *) hdr, sizeof(*hdr));
+  hdr->ttl = 0xff;
+  hdr->protocol = protocol;
+  hdr->checksum = in_cksum((uchar*) hdr, sizeof(*hdr));
   hdr->src_ip_addr = toggle_endian32(local_ip_addr);
   hdr->dst_ip_addr = toggle_endian32(dst_ip);
 
@@ -65,10 +67,16 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
   if (dst_ip) {
     uint ret = arp_resolve(dst_ip, dst_mac);
     if (ret != 1)
-      printf("unresolved ip address.");
+      printf("unresolved ip address.\n");
+  } else {
+    memmove(dst_mac, ETHERNET_ADDR_BROADCAST, 6);
   }
 
+  __sync_synchronize();
+  printf("ip_tx begin\n");
   ethernet_tx(m, ETH_TYPE_IPV4, dst_mac);
+  __sync_synchronize();
+  printf("ip_tx end\n");
 }
 
 void

@@ -73,7 +73,7 @@ sys_read(void)
   int n;
   uint32 p;
 
-  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
+  if(argfd(0, 0, &f) < 0 || argaddr(1, &p) < 0 || argint(2, &n) < 0)
     return -1;
   return fileread(f, p, n);
 }
@@ -85,7 +85,7 @@ sys_write(void)
   int n;
   uint32 p;
 
-  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
+  if(argfd(0, 0, &f) < 0 || argaddr(1, &p) < 0 || argint(2, &n) < 0)
     return -1;
 
   return filewrite(f, p, n);
@@ -488,11 +488,11 @@ sys_pipe(void)
 uint32
 sys_connect(void)
 {
-  struct file *f;
   uint32 remote_ip_addr;
   uint16 local_port, remote_port;
   if (argint(0, (int*) &remote_ip_addr) || argint(1, (int*) &local_port) || argint(2, (int*) &remote_port))
     return -1;
+  struct file *f = filealloc();
   if (socket_alloc(&f, remote_ip_addr, local_port, remote_port) < 0)
     return -1;
   uint fd = fdalloc(f);

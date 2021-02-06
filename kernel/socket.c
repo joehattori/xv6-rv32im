@@ -49,11 +49,27 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   (*f)->readable = 1;
   (*f)->writable = 1;
   (*f)->sock = s;
-  // TODO: check if there is already a matched socket.
-  acquire(&s->lock);
+
+  // check if there is already a matched socket.
+  struct socket *cur = sockets;
+  while (cur) {
+    if (cur->remote_ip_addr == remote_ip_addr &&
+      cur->local_port == local_port &&
+      cur->remote_port == remote_port) {
+      release(&lock);
+      if (s)
+        kfree(s);
+      if (*f)
+        fileclose(*f);
+      return -1;
+    }
+    cur = cur->nxt;
+  }
+
+  acquire(&lock);
   s->nxt = sockets;
   sockets = s;
-  release(&s->lock);
+  release(&lock);
   return 0;
 }
 
@@ -112,7 +128,7 @@ socket_write(struct socket *s, uint32 addr, uint len)
     return -1;
   }
   udp_tx(m, s->remote_ip_addr, s->local_port, s->remote_port);
-  return 0;
+  return len;
 }
 
 void

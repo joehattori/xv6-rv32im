@@ -23,15 +23,18 @@ arp_tx(uint16 op, uint8 hw_addr[6], const uint8 dst_mac[6], uint32 dst_ip)
   struct mbuf *m = mbuf_alloc(MBUF_DEFAULT_HEADROOM);
   if (!m)
     return -1;
-  struct arp *arp_hdr = (struct arp*) mbuf_append(m, sizeof(struct arp*));
-  arp_hdr->htype = ETH_HTYPE;
-  arp_hdr->ptype = IPV4_PTYPE;
+  struct arp *arp_hdr = (struct arp*) mbuf_append(m, sizeof(struct arp));
+  arp_hdr->htype = toggle_endian16(ETH_HTYPE);
+  arp_hdr->ptype = toggle_endian16(IPV4_PTYPE);
   arp_hdr->hlen = ETH_HLEN;
   arp_hdr->plen = IPV4_PLEN;
   arp_hdr->oper = toggle_endian16(op);
   memmove(arp_hdr->sha, local_mac_addr, 6);
   arp_hdr->spa = toggle_endian32(local_ip_addr);
-  memmove(arp_hdr->tha, hw_addr, 6);
+  if (hw_addr)
+    memmove(arp_hdr->tha, hw_addr, 6);
+  else
+    memset(arp_hdr->tha, (uint32) hw_addr, 6);
   arp_hdr->tpa = toggle_endian32(dst_ip);
   ethernet_tx(m, ETH_TYPE_ARP, dst_mac);
   return 0;

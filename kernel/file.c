@@ -134,26 +134,26 @@ fileread(struct file *f, uint32 addr, int n)
 int
 filewrite(struct file *f, uint32 addr, int n)
 {
-  int r, ret = 0;
-
   if(f->writable == 0)
     return -1;
 
-  if(f->type == FD_PIPE){
-    ret = pipewrite(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
+  int i, r, max;
+  switch (f->type) {
+  case FD_PIPE:
+    return pipewrite(f->pipe, addr, n);
+  case FD_DEVICE:
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
       return -1;
-    ret = devsw[f->major].write(1, addr, n);
-  } else if(f->type == FD_INODE){
+    return devsw[f->major].write(1, addr, n);
+  case FD_INODE:
     // write a few blocks at a time to avoid exceeding
     // the maximum log transaction size, including
     // i-node, indirect block, allocation blocks,
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
-    int i = 0;
+    max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+    i = 0;
     while(i < n){
       int n1 = n - i;
       if(n1 > max)
@@ -166,17 +166,15 @@ filewrite(struct file *f, uint32 addr, int n)
       iunlock(f->ip);
       end_op();
 
-      if(r != n1){
-        // error from writei
+      if(r != n1) // error from writei
         break;
-      }
       i += r;
     }
-    ret = (i == n ? n : -1);
-  } else {
+    return (i == n ? n : -1);
+  case FD_SOCKET:
+    return socket_write(f->sock, addr, n);
+  default:
     panic("filewrite");
   }
-
-  return ret;
 }
 

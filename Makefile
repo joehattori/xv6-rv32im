@@ -138,6 +138,7 @@ UPROGS=\
 	$U/_sh\
 	$U/_stressfs\
 	$U/_usertests\
+	$U/_nettest\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
@@ -166,7 +167,7 @@ CPUS := 1
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 1024M -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
-QEMUOPTS += -netdev user,id=net0,hostfwd=tcp::8080-:80 -object filter-dump,id=net0,netdev=net0,file=dump.pcap
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::8080-:80 -object filter-dump,id=net0,netdev=net0,file=dump.pcap
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 QEMUOPTS += -monitor unix:qemu-monitor-socket,server,nowait
 
