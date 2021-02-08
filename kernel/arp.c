@@ -94,7 +94,6 @@ arp_resolve(uint32 ip_addr, uint8 mac_addr[6])
 
   entry->used = 1;
   entry->ip_addr = ip_addr;
-  printf("tx %x\n", ip_addr);
   arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
 
   release(&lock);

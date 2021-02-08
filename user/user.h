@@ -41,3 +41,5 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+uint16 toggle_endian16(uint16);
+uint32 toggle_endian32(uint32);
