@@ -16,3 +16,4 @@ struct ethernet_hdr {
 } __attribute__((packed));
 
 void ethernet_tx(struct mbuf*, uint16, const uint8[6]);
+void ethernet_rx(struct mbuf*);

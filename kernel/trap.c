@@ -1,5 +1,4 @@
 #include "types.h"
-#include "param.h"
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
@@ -14,7 +13,7 @@ extern char trampoline[], uservec[], userret[];
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
 
-extern int devintr();
+int devintr();
 
 void
 trapinit(void)
@@ -178,7 +177,7 @@ devintr()
 {
   uint32 scause = r_scause();
 
-  if((scause & 0x80000000L) &&
+  if((scause & 0x80000000) &&
      (scause & 0xff) == 9){
     // this is a supervisor external interrupt, via PLIC.
 
@@ -202,7 +201,7 @@ devintr()
       plic_complete(irq);
 
     return 1;
-  } else if(scause == 0x80000001L){
+  } else if(scause == 0x80000001){
     // software interrupt from a machine-mode timer interrupt,
     // forwarded by timervec in kernelvec.S.
 

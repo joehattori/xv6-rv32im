@@ -1,7 +1,6 @@
 #include "defs.h"
 #include "ip.h"
 #include "mbuf.h"
-#include "net.h"
 #include "types.h"
 #include "udp.h"
 
@@ -29,15 +28,14 @@ udp_tx(struct mbuf *m, uint32 dst_ip, uint16 src_port, uint16 dst_port)
 void
 udp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
 {
-  struct udp_hdr *udphdr = (struct udp_hdr*)mbuf_pop(m, sizeof(struct udp_hdr*));
-  if (!is_udp_packet_valid(udphdr)) {
+  struct udp_hdr *udphdr = (struct udp_hdr*) mbuf_pop(m, sizeof(struct udp_hdr));
+  if (!is_udp_packet_valid(udphdr))
     return;
-  }
   len -= sizeof(*udphdr);
   mbuf_trim(m, m->len - len);
 
-  uint32 src_ip_addr = iphdr->src_ip_addr;
-  uint16 src_port = udphdr->src_port;
-  uint16 dst_port = udphdr->dst_port;
+  uint32 src_ip_addr = toggle_endian32(iphdr->src_ip_addr);
+  uint16 src_port = toggle_endian16(udphdr->src_port);
+  uint16 dst_port = toggle_endian16(udphdr->dst_port);
   socket_recv_udp(m, src_ip_addr, src_port, dst_port);
 }

@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define PCI_ECAM        0x30000000
 #define E1000_ID        0x100e8086
 #define E1000_REGS_ADDR 0x40000000
 
@@ -11,7 +12,7 @@ void
 pci_init()
 { 
   // using PCIe ECAM.
-  uint32 *ecam = (uint32*)0x30000000;
+  uint32 *ecam = (uint32*) PCI_ECAM;
   for (int dev = 0; dev < 32; dev++) {
     int bus = 0;
     int func = 0;
@@ -24,7 +25,7 @@ pci_init()
       *(base + 1) = 0x7;
       // set base address
       *(base + 4) = E1000_REGS_ADDR;
-      e1000_init((uint32*)E1000_REGS_ADDR);
+      e1000_init((uint32*) E1000_REGS_ADDR);
     }
   }
 }

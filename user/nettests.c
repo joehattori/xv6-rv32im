@@ -5,11 +5,9 @@
 static void
 ping(uint16 sport, uint16 dport, int attempts)
 {
-  uint32 dst;
-
   // 10.0.2.2, which qemu remaps to the external host,
   // i.e. the machine you're running qemu on.
-  dst = (10 << 24) | (0 << 16) | (2 << 8) | (2 << 0);
+  uint32 dst = (10 << 24) | (0 << 16) | (2 << 8) | (2 << 0);
 
   // you can send a UDP packet to any Internet address
   // by using a different dst.
@@ -20,7 +18,7 @@ ping(uint16 sport, uint16 dport, int attempts)
     exit(1);
   }
 
-  char obuf[] = "joe";
+  char obuf[] = "hello world!";
   for(int i = 0; i < attempts; i++) {
     if(write(fd, obuf, sizeof(obuf)) < 0){
       fprintf(2, "ping: send() failed\n");
@@ -29,7 +27,6 @@ ping(uint16 sport, uint16 dport, int attempts)
   }
 
   char ibuf[128];
-  printf("read\n");
   int cc = read(fd, ibuf, sizeof(ibuf));
   if(cc < 0){
     fprintf(2, "ping: recv() failed\n");
@@ -42,11 +39,12 @@ ping(uint16 sport, uint16 dport, int attempts)
     exit(1);
   }
 }
+
 int
 main(int argc, char *argv[])
 {
   int i, ret;
-  uint16 dport = 8080;
+  uint16 dport = NET_TESTS_PORT;
 
   printf("nettests running on port %d\n", dport);
 

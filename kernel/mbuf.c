@@ -57,7 +57,7 @@ mbuf_prepend(struct mbuf *m, uint len)
 char *
 mbuf_pop(struct mbuf *m, uint len)
 {
-  char *ret = m->head - m->len;
+  char *ret = m->head;
   m->len -= len;
   if (m->len < 0)
     return 0;

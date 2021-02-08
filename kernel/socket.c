@@ -40,10 +40,12 @@ socket_init(void)
 int
 socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 remote_port)
 {
+  *f = filealloc();
   struct socket *s = (struct socket*) kalloc();
   s->remote_ip_addr = remote_ip_addr;
   s->local_port = local_port;
   s->remote_port = remote_port;
+  initlock(&s->lock, "socket");
   s->mbufs = 0;
   (*f)->type = FD_SOCKET;
   (*f)->readable = 1;
@@ -76,7 +78,10 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
 int
 socket_close(struct socket *s)
 {
-  // TODO: wakeup?
+  acquire(&s->lock);
+  wakeup(&s->mbufs);
+  release(&s->lock);
+
   acquire(&lock);
   struct socket* shead = sockets;
   if (!shead->nxt)
@@ -102,7 +107,13 @@ socket_read(struct socket *s, uint32 addr, uint len)
 {
   struct proc *p = myproc();
   acquire(&s->lock);
+  // sleep the process while socket's mbufs is empty.
+  if (!s->mbufs) {
+    while (!s->mbufs)
+      sleep(&s->mbufs, &s->lock);
+  }
   struct mbuf *m = s->mbufs;
+  s->mbufs = m->nxt;
   if (len > m->len)
     len = m->len;
 
@@ -138,7 +149,7 @@ socket_recv_udp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
   acquire(&lock);
   // find the corresponding socket.
   while (s) {
-    if (s->remote_ip_addr == src_ip_addr && s->local_port == src_port && s->remote_port == dst_port)
+    if (s->remote_ip_addr == src_ip_addr && s->local_port == dst_port && s->remote_port == src_port)
       break;
     s = s->nxt;
   }
@@ -146,6 +157,7 @@ socket_recv_udp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
 
   // when no socket found
   if (s == 0) {
+    printf("socket not found\n");
     mbuf_free(m);
     return;
   }

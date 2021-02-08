@@ -1,8 +1,8 @@
 #include "arp.h"
 #include "defs.h"
 #include "ethernet.h"
+#include "ip.h"
 #include "mbuf.h"
-#include "net.h"
 #include "spinlock.h"
 
 #define ARP_OR_REQUEST 1
@@ -29,12 +29,9 @@ arp_tx(uint16 op, uint8 hw_addr[6], const uint8 dst_mac[6], uint32 dst_ip)
   arp_hdr->hlen = ETH_HLEN;
   arp_hdr->plen = IPV4_PLEN;
   arp_hdr->oper = toggle_endian16(op);
-  memmove(arp_hdr->sha, local_mac_addr, 6);
-  arp_hdr->spa = toggle_endian32(local_ip_addr);
-  if (hw_addr)
-    memmove(arp_hdr->tha, hw_addr, 6);
-  else
-    memset(arp_hdr->tha, (uint32) hw_addr, 6);
+  memmove(arp_hdr->sha, LOCAL_MAC_ADDR, 6);
+  arp_hdr->spa = toggle_endian32(LOCAL_IP_ADDR);
+  memmove(arp_hdr->tha, hw_addr, 6);
   arp_hdr->tpa = toggle_endian32(dst_ip);
   ethernet_tx(m, ETH_TYPE_ARP, dst_mac);
   return 0;
@@ -43,7 +40,7 @@ arp_tx(uint16 op, uint8 hw_addr[6], const uint8 dst_mac[6], uint32 dst_ip)
 void
 arp_rx(struct mbuf *m)
 {
-  struct arp *arp_hdr = (struct arp*) mbuf_pop(m, sizeof(struct arp*));
+  struct arp *arp_hdr = (struct arp*) mbuf_pop(m, sizeof(struct arp));
 
   // TODO: validate packet
 
@@ -80,7 +77,7 @@ arp_resolve(uint32 ip_addr, uint8 mac_addr[6])
   struct arp_entry *entry = arp_table_select(ip_addr);
   if (entry) {
     if (memcmp(entry->mac_addr, ETHERNET_ADDR_ANY, 6) == 0) {
-      arp_tx(ARP_OR_REQUEST, 0, ETHERNET_ADDR_BROADCAST, ip_addr);
+      arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
       release(&lock);
       return 0;
     }
@@ -97,15 +94,15 @@ arp_resolve(uint32 ip_addr, uint8 mac_addr[6])
 
   entry->used = 1;
   entry->ip_addr = ip_addr;
-  arp_tx(ARP_OR_REQUEST, 0, ETHERNET_ADDR_BROADCAST, ip_addr);
+  printf("tx %x\n", ip_addr);
+  arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
 
   release(&lock);
   return 0;
 }
 
-uint
+void
 arp_init(void)
 {
   initlock(&lock, "arp");
-  return 0;
 }

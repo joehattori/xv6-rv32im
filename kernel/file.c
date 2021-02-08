@@ -73,12 +73,21 @@ fileclose(struct file *f)
   f->type = FD_NONE;
   release(&ftable.lock);
 
-  if(ff.type == FD_PIPE){
+  switch (ff.type) {
+  case FD_PIPE:
     pipeclose(ff.pipe, ff.writable);
-  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
+    return;
+  case FD_INODE:
+  case FD_DEVICE:
     begin_op();
     iput(ff.ip);
     end_op();
+    return;
+  case FD_SOCKET:
+    socket_close(ff.sock);
+    return;
+  default:
+    panic("fileclose unmatched");
   }
 }
 

@@ -201,13 +201,17 @@ void            plicinithart(void);
 int             plic_claim(void);
 void            plic_complete(int);
 
-// net.c
-void            net_rx(struct mbuf*);
+// arp.c
+void            arp_init(void);
 
 // virtio_disk.c
 void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
+
+// utils.c
+uint16          toggle_endian16(uint16);
+uint32          toggle_endian32(uint32);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

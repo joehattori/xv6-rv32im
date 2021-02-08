@@ -10,12 +10,12 @@ OBJS = \
   $K/kalloc.o \
   $K/spinlock.o \
   $K/string.o \
+  $K/utils.o \
   $K/ip.o \
   $K/arp.o \
   $K/udp.o \
   $K/mbuf.o \
   $K/ethernet.o \
-  $K/net.o \
   $K/socket.o \
   $K/e1000.o \
   $K/pci.o \
@@ -71,6 +71,7 @@ CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
@@ -138,7 +139,7 @@ UPROGS=\
 	$U/_sh\
 	$U/_stressfs\
 	$U/_usertests\
-	$U/_nettest\
+	$U/_nettests\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
@@ -163,13 +164,16 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
+FWDPORT = $(shell expr `id -u` % 5000 + 25999)
+SERVERPORT = $(shell expr `id -u` % 5000 + 25099)
+
 CPUS := 1
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 1024M -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
-QEMUOPTS += -netdev user,id=net0,hostfwd=udp::8080-:80 -object filter-dump,id=net0,netdev=net0,file=dump.pcap
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000 -object filter-dump,id=net0,netdev=net0,file=dump.pcap
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
-QEMUOPTS += -monitor unix:qemu-monitor-socket,server,nowait
+#QEMUOPTS += -monitor unix:qemu-monitor-socket,server,nowait
 
 qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
@@ -185,4 +189,7 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 run-docker:
-	docker run -it -v $(PWD):/work --rm joehattori/xv6-rv32im:latest bash
+	docker run -it -v $(PWD):/work -P --rm joehattori/xv6-rv32im:latest bash
+
+py-server:
+	python3 server.py $(SERVERPORT)

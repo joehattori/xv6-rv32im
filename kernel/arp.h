@@ -22,3 +22,4 @@ struct arp_entry {
 
 void arp_rx(struct mbuf*);
 uint arp_resolve(uint32, uint8*);
+void arp_init(void);

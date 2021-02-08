@@ -29,7 +29,8 @@ main()
     fileinit();         // file table
     virtio_disk_init(); // emulated hard disk
     pci_init();         // pci
-    socket_init();
+    socket_init();      // socket
+    arp_init();         // arp
 
     userinit();      // first user process
     __sync_synchronize();
