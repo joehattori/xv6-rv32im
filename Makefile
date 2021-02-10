@@ -193,5 +193,8 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 run-docker:
 	docker run -it -v $(PWD):/work -P --rm joehattori/xv6-rv32im:latest bash
 
-py-server:
-	python3 server.py $(SERVERPORT)
+py-server-udp:
+	python3 server-udp.py $(SERVERPORT)
+
+py-server-tcp:
+	python3 server-tcp.py $(SERVERPORT)

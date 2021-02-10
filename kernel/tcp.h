@@ -15,7 +15,7 @@ struct tcp_hdr {
   uint16 win;
   uint16 checksum;
   uint16 urg;
-};
+} __attribute__((packed));
 
 struct tcp_txq_entry {
   struct tcp_hdr *segment;
@@ -60,7 +60,7 @@ struct tcp_cb {
 };
 
 int  tcp_open();
-int  tcp_connect(struct mbuf*, int, uint32, uint32);
+int  tcp_connect(struct mbuf*, int, uint32, uint32, uint32);
 int  tcp_send(struct mbuf*, int, uint);
 void tcp_rx(struct mbuf*, uint16, struct ip_hdr*);
 void tcp_init(void);

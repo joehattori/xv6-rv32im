@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "tcp.h"
 
 volatile static int started = 0;
 
@@ -31,6 +32,7 @@ main()
     pci_init();         // pci
     socket_init();      // socket
     arp_init();         // arp
+    tcp_init();         // tcp
 
     userinit();      // first user process
     __sync_synchronize();

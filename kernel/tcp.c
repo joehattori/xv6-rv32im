@@ -102,8 +102,9 @@ static int
 tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uint len)
 {
   struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_prepend(m, sizeof(struct tcp_hdr));
-  hdr->src_port = cb->port;
-  hdr->dst_port = cb->peer.port;
+  memset(hdr, 0, sizeof(*hdr));
+  hdr->src_port = toggle_endian16(cb->port);
+  hdr->dst_port = toggle_endian16(cb->peer.port);
   hdr->seq = toggle_endian32(seq);
   hdr->ack = toggle_endian32(ack);
   hdr->off = (sizeof(struct tcp_hdr) >> 2) << 4;
@@ -112,16 +113,18 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
   hdr->checksum = 0;
   hdr->urg = 0;
 
-  uint32 peer = cb->peer.addr;
+  uint32 self = toggle_endian32(LOCAL_IP_ADDR);
+  uint32 peer = toggle_endian32(cb->peer.addr);
+  uint32 pseudo = 0;
+  pseudo += (self >> 16) & 0xffff;
+  pseudo += self & 0xffff;
+  pseudo += (peer >> 16) & 0xffff;
+  pseudo += peer & 0xffff;
+  pseudo += toggle_endian16((uint16) IP_PROTO_TCP);
+  pseudo += toggle_endian16(sizeof(struct tcp_hdr) + len);
+  hdr->checksum = checksum((uint8*) hdr, sizeof(struct tcp_hdr) + len, pseudo);
 
-  uint32 init = (LOCAL_IP_ADDR >> 16) & 0xffff;
-  init += LOCAL_IP_ADDR & 0xffff;
-  init += (peer >> 16) & 0xffff;
-  init += peer & 0xffff;
-  init += toggle_endian16((uint16) IP_PROTO_TCP);
-  init += toggle_endian16(sizeof(struct tcp_hdr) + len);
-  hdr->checksum = checksum((uint8*) hdr, sizeof(struct tcp_hdr) + len, init);
-  ip_tx(m, peer, IP_PROTO_TCP);
+  ip_tx(m, cb->peer.addr, IP_PROTO_TCP);
   tcp_txq_add(cb, hdr, sizeof(struct tcp_hdr) + len);
   return len;
 }
@@ -411,10 +414,9 @@ tcp_close(struct mbuf *m, int soc)
 }
 
 int
-tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
+tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 local_port)
 {
   struct tcp_cb *cb, *tmp;
-  uint32 p;
 
   if (TCP_SOCKET_ISINVALID(soc)) {
     return -1;
@@ -426,23 +428,20 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
     return -1;
   }
   if (!cb->port) {
-    int offset = time(0) % 1024;
-    for (p = TCP_SOURCE_PORT_MIN + offset; p <= TCP_SOURCE_PORT_MAX; p++) {
-      for (tmp = cb_table; tmp < cb_table + TCP_CB_TABLE_SIZE; tmp++) {
-        if (tmp->used && tmp->port == toggle_endian16((uint16)p)) {
-          break;
-        }
-      }
-      if (tmp == cb_table + TCP_CB_TABLE_SIZE) {
-        cb->port = toggle_endian16((uint16)p);
+    for (tmp = cb_table; tmp < cb_table + TCP_CB_TABLE_SIZE; tmp++) {
+      if (tmp->used && tmp->port == toggle_endian16((uint16) local_port)) {
         break;
       }
+    }
+    if (tmp == cb_table + TCP_CB_TABLE_SIZE) {
+      cb->port = (uint16) local_port;
     }
     if (!cb->port) {
       release(&lock);
       return -1;
     }
   }
+  printf("connecting %d\n", cb->port);
   cb->peer.addr = dst_ip;
   cb->peer.port = dst_port;
   cb->rcv.wnd = sizeof(cb->window);

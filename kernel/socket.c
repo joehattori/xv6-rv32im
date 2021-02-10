@@ -44,8 +44,9 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   if (type == SOCKET_TYPE_TCP) {
     s->tcp_cb_offset = tcp_open();
     struct mbuf *m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr));
-    if (tcp_connect(m, s->tcp_cb_offset, remote_ip_addr, remote_port) < 0)
+    if (tcp_connect(m, s->tcp_cb_offset, remote_ip_addr, remote_port, local_port) < 0)
       printf("socket_alloc(): failed to tcp_connect\n");
+    printf("tcpconnected\n");
   }
   (*f)->type = FD_SOCKET;
   (*f)->readable = 1;

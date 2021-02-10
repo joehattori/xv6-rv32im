@@ -52,18 +52,18 @@ get(char *host)
 int
 main(int argc, char *argv[])
 {
-  // uint16 dport = NET_TESTS_PORT;
+  uint16 dport = NET_TESTS_PORT;
 
-  // printf("nettests running on port %d\n", dport);
+  printf("nettests running on port %d\n", dport);
 
-  // printf("testing one ping: ");
-  // ping(2000, dport, 2);
-  // printf("OK\n");
+  printf("testing one ping: ");
+  ping(2000, dport, 2);
+  printf("OK\n");
 
-  // printf("testing single-process pings: ");
-  // for (int i = 0; i < 100; i++)
-  //   ping(2000, dport, 1);
-  // printf("OK\n");
+  printf("testing single-process pings: ");
+  for (int i = 0; i < 100; i++)
+    ping(2000, dport, 1);
+  printf("OK\n");
 
   // This test fails sometimes.
   // printf("testing multi-process pings: ");
