@@ -102,14 +102,14 @@ static int
 tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uint len)
 {
   struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_prepend(m, sizeof(struct tcp_hdr));
-  hdr->src = cb->port;
-  hdr->dst = cb->peer.port;
+  hdr->src_port = cb->port;
+  hdr->dst_port = cb->peer.port;
   hdr->seq = toggle_endian32(seq);
   hdr->ack = toggle_endian32(ack);
   hdr->off = (sizeof(struct tcp_hdr) >> 2) << 4;
   hdr->flg = flg;
   hdr->win = toggle_endian16(cb->rcv.wnd);
-  hdr->sum = 0;
+  hdr->checksum = 0;
   hdr->urg = 0;
 
   uint32 peer = cb->peer.addr;
@@ -120,7 +120,7 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
   init += peer & 0xffff;
   init += toggle_endian16((uint16) IP_PROTO_TCP);
   init += toggle_endian16(sizeof(struct tcp_hdr) + len);
-  hdr->sum = checksum((uint8*) hdr, sizeof(struct tcp_hdr) + len, init);
+  hdr->checksum = checksum((uint8*) hdr, sizeof(struct tcp_hdr) + len, init);
   ip_tx(m, peer, IP_PROTO_TCP);
   tcp_txq_add(cb, hdr, sizeof(struct tcp_hdr) + len);
   return len;
@@ -311,29 +311,16 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
   return;
 }
 
-static void
-tcp_rx(struct mbuf *m, uint8 *segment, uint len, uint32 src, uint32 dst)
+void
+tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
 {
-  struct tcp_hdr *hdr;
+  struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_pop(m, sizeof(struct tcp_hdr));
   struct tcp_cb *cb, *fcb = 0, *lcb = 0;
 
-  // if (*dst != ((struct netif_ip *)iface)->unicast) {
-  //   return;
-  // }
   if (len < sizeof(struct tcp_hdr)) {
     return;
   }
-  hdr = (struct tcp_hdr *)segment;
-  uint32 init = src >> 16;
-  init += src & 0xffff;
-  init += dst >> 16;
-  init += dst & 0xffff;
-  init += toggle_endian16((uint16) IP_PROTO_TCP);
-  init += toggle_endian16(len);
-  if (checksum((uint8*) hdr, len, init) != 0) {
-    printf("tcp checksum error!\n");
-    return;
-  }
+  uint32 src_ip_addr = iphdr->src_ip_addr;
   acquire(&lock);
   for (cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
     if (!cb->used) {
@@ -341,8 +328,8 @@ tcp_rx(struct mbuf *m, uint8 *segment, uint len, uint32 src, uint32 dst)
         fcb = cb;
       }
     }
-    else if (cb->port == hdr->dst) {
-      if (cb->peer.addr == src && cb->peer.port == hdr->src) {
+    else if (cb->port == hdr->dst_port) {
+      if (cb->peer.addr == src_ip_addr && cb->peer.port == hdr->src_port) {
         break;
       }
       if (cb->state == TCP_CB_STATE_LISTEN && !lcb) {
@@ -360,8 +347,8 @@ tcp_rx(struct mbuf *m, uint8 *segment, uint len, uint32 src, uint32 dst)
     cb->used = 1;
     cb->state = lcb->state;
     cb->port = lcb->port;
-    cb->peer.addr = src;
-    cb->peer.port = hdr->src;
+    cb->peer.addr = src_ip_addr;
+    cb->peer.port = hdr->src_port;
     cb->rcv.wnd = sizeof(cb->window);
     cb->parent = lcb;
   }
@@ -424,19 +411,14 @@ tcp_close(struct mbuf *m, int soc)
 }
 
 int
-tcp_connect(struct mbuf *m, int soc, struct socketaddr *addr, int addrlen)
+tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
 {
-  struct socketaddr_in *sin;
   struct tcp_cb *cb, *tmp;
   uint32 p;
 
   if (TCP_SOCKET_ISINVALID(soc)) {
     return -1;
   }
-  // if (addr->sa_family != AF_INET) {
-  //   return -1;
-  // }
-  sin = (struct socketaddr_in *)addr;
   acquire(&lock);
   cb = &cb_table[soc];
   if (!cb->used || cb->state != TCP_CB_STATE_CLOSED) {
@@ -461,8 +443,8 @@ tcp_connect(struct mbuf *m, int soc, struct socketaddr *addr, int addrlen)
       return -1;
     }
   }
-  cb->peer.addr = sin->sin_addr;
-  cb->peer.port = sin->sin_port;
+  cb->peer.addr = dst_ip;
+  cb->peer.port = dst_port;
   cb->rcv.wnd = sizeof(cb->window);
   cb->iss = (uint32) rand();
   tcp_tx(m, cb, cb->iss, 0, TCP_FLG_SYN, 0);

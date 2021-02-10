@@ -4,6 +4,7 @@
 #include "ip.h"
 #include "mbuf.h"
 #include "types.h"
+#include "tcp.h"
 #include "udp.h"
 
 #define BUILD_IP_ADDR(v1, v2, v3, v4) (((v1) << 24) | ((v2) << 16) | ((v3) << 8) | ((v4) << 0))

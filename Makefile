@@ -15,6 +15,7 @@ OBJS = \
   $K/arp.o \
   $K/udp.o \
   $K/mbuf.o \
+  $K/queue.o \
   $K/ethernet.o \
   $K/socket.o \
   $K/e1000.o \

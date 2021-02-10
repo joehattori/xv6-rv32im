@@ -14,6 +14,7 @@ struct socket {
   struct spinlock lock;
   struct mbuf *mbufs;
   uint8  type;
+  uint8  tcp_cb_offset;
 };
 
 struct socketaddr_in {

@@ -163,6 +163,7 @@ int             socket_close(struct socket*);
 int             socket_read(struct socket*, uint32, uint);
 int             socket_write(struct socket*, uint32, uint32);
 void            socket_recv_udp(struct mbuf*, uint32, uint16, uint16);
+void            socket_recv_tcp(struct mbuf*, uint32, uint16, uint16);
 
 // trap.c
 extern uint     ticks;

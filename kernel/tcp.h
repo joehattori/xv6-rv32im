@@ -1,18 +1,19 @@
 #pragma once
 
-#include "types.h"
+#include "ip.h"
 #include "mbuf.h"
 #include "queue.h"
+#include "types.h"
 
 struct tcp_hdr {
-  uint16 src;
-  uint16 dst;
+  uint16 src_port;
+  uint16 dst_port;
   uint32 seq;
   uint32 ack;
   uint8  off;
   uint8  flg;
   uint16 win;
-  uint16 sum;
+  uint16 checksum;
   uint16 urg;
 };
 
@@ -58,5 +59,8 @@ struct tcp_cb {
   struct queue_head backlog;
 };
 
+int  tcp_open();
+int  tcp_connect(struct mbuf*, int, uint32, uint32);
 int  tcp_send(struct mbuf*, int, uint);
+void tcp_rx(struct mbuf*, uint16, struct ip_hdr*);
 void tcp_init(void);

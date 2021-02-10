@@ -41,6 +41,12 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   initlock(&s->lock, "socket");
   s->mbufs = 0;
   s->type = type;
+  if (type == SOCKET_TYPE_TCP) {
+    s->tcp_cb_offset = tcp_open();
+    struct mbuf *m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr));
+    if (tcp_connect(m, s->tcp_cb_offset, remote_ip_addr, remote_port) < 0)
+      printf("socket_alloc(): failed to tcp_connect\n");
+  }
   (*f)->type = FD_SOCKET;
   (*f)->readable = 1;
   (*f)->writable = 1;
@@ -135,7 +141,7 @@ socket_write(struct socket *s, uint32 addr, uint len)
       mbuf_free(m);
       return -1;
     }
-    tcp_send(m, s->remote_ip_addr, s->local_port, s->remote_port);
+    tcp_send(m, s->tcp_cb_offset, len);
     break;
   case SOCKET_TYPE_UDP:
     m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct udp_hdr));
@@ -177,6 +183,27 @@ socket_recv_udp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
 }
 
 void
-socket_recv_tcp(struct mbuf *m)
+socket_recv_tcp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_port)
 {
+  struct socket *s = sockets;
+  acquire(&lock);
+  // find the corresponding socket.
+  while (s) {
+    if (s->remote_ip_addr == src_ip_addr && s->local_port == dst_port && s->remote_port == src_port)
+      break;
+    s = s->nxt;
+  }
+  release(&lock);
+
+  // when no socket found
+  if (s == 0) {
+    printf("socket not found\n");
+    mbuf_free(m);
+    return;
+  }
+
+  acquire(&s->lock);
+  append_mbuf(s, m);
+  release(&s->lock);
+  wakeup(&s->mbufs);
 }
