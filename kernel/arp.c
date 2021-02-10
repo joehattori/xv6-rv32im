@@ -17,6 +17,26 @@
 static struct spinlock lock;
 static struct arp_entry arp_table[ARP_TABLE_SIZE];
 
+struct arp_entry *
+arp_table_select(uint32 ip_addr)
+{
+  for (struct arp_entry *entry = arp_table; entry < arp_table + ARP_TABLE_SIZE; entry++) {
+    if (entry->used && entry->ip_addr == ip_addr)
+      return entry;
+  }
+  return 0;
+}
+
+struct arp_entry *
+arp_table_get_unused(void)
+{
+  for (struct arp_entry *entry = arp_table; entry < arp_table + ARP_TABLE_SIZE; entry++) {
+    if (!entry->used)
+      return entry;
+  }
+  return 0;
+}
+
 static int
 arp_tx(uint16 op, uint8 hw_addr[6], const uint8 dst_mac[6], uint32 dst_ip)
 {
@@ -47,27 +67,33 @@ arp_rx(struct mbuf *m)
   uint8 sender_mac[6];
   memmove(sender_mac, arp_hdr->sha, 6);
   uint32 sender_ip = toggle_endian32(arp_hdr->spa);
-  arp_tx(ARP_OR_REPLY, sender_mac, sender_mac, sender_ip);
-}
-
-struct arp_entry *
-arp_table_select(uint32 ip_addr)
-{
-  for (struct arp_entry *entry = arp_table; entry < arp_table + ARP_TABLE_SIZE; entry++) {
-    if (entry->used && entry->ip_addr == ip_addr)
-      return entry;
+  uint16 op = toggle_endian16(arp_hdr->oper);
+  switch (op) {
+  case ARP_OR_REQUEST:
+    arp_tx(ARP_OR_REPLY, sender_mac, sender_mac, sender_ip);
+    return;
+  case ARP_OR_REPLY:
+    // TODO: need this? delete or update!
+    for (int i = 0; i < ARP_TABLE_SIZE; i++) {
+      if (!arp_table[i].used) {
+        arp_table[i].used = 1;
+        arp_table[i].ip_addr = sender_ip;
+        memmove(arp_table[i].mac_addr, sender_mac, 6);
+        printf("updated %x to %x:%x:%x:%x:%x:%x\n",
+          arp_table[i].ip_addr,
+          arp_table[i].mac_addr[0],
+          arp_table[i].mac_addr[1],
+          arp_table[i].mac_addr[2],
+          arp_table[i].mac_addr[3],
+          arp_table[i].mac_addr[4],
+          arp_table[i].mac_addr[5]);
+        break;
+      }
+    }
+    return;
+  default:
+    printf("arp_rx: invalid operation %d\n", op);
   }
-  return 0;
-}
-
-struct arp_entry *
-arp_table_get_unused(void)
-{
-  for (struct arp_entry *entry = arp_table; entry < arp_table + ARP_TABLE_SIZE; entry++) {
-    if (!entry->used)
-      return entry;
-  }
-  return 0;
 }
 
 uint
@@ -89,12 +115,26 @@ arp_resolve(uint32 ip_addr, uint8 mac_addr[6])
   entry = arp_table_get_unused();
   if (!entry) {
     release(&lock);
+    printf("full arp table\n");
     return -1;
   }
 
-  entry->used = 1;
-  entry->ip_addr = ip_addr;
-  arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
+  // entry->used = 1;
+  // entry->ip_addr = ip_addr;
+  // arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
+  arp_tx(ARP_OR_REQUEST, (uint8*) GATEWAY_MAC_ADDR, ETHERNET_ADDR_BROADCAST, ip_addr);
+
+  // TODO: Fix the code below. Just a workaround.
+  // while (1) {
+  //   entry = arp_table_select(ip_addr);
+  //   if (entry) {
+  //     printf("precopy: %x %x:%x:%x:%x:%x:%x\n", ip_addr, entry->mac_addr[0], entry->mac_addr[1], entry->mac_addr[2], entry->mac_addr[3], entry->mac_addr[4], entry->mac_addr[5]);
+  //     memmove(mac_addr, entry->mac_addr, 6);
+  //     printf("copied: %x:%x:%x:%x:%x:%x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  //     release(&lock);
+  //     return 1;
+  //   }
+  // }
 
   release(&lock);
   return 0;

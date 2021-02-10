@@ -4,17 +4,10 @@
 #include "ip.h"
 #include "mbuf.h"
 #include "spinlock.h"
+#include "tcp.h"
 #include "types.h"
 #include "udp.h"
-
-struct socket {
-  struct socket *nxt;
-  uint32 remote_ip_addr;
-  uint16 local_port;
-  uint16 remote_port;
-  struct spinlock lock;
-  struct mbuf *mbufs;
-};
+#include "socket.h"
 
 static void
 append_mbuf(struct socket *s, struct mbuf *m)
@@ -38,7 +31,7 @@ socket_init(void)
 }
 
 int
-socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 remote_port)
+socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 remote_port, uint8 type)
 {
   *f = filealloc();
   struct socket *s = (struct socket*) kalloc();
@@ -47,6 +40,7 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   s->remote_port = remote_port;
   initlock(&s->lock, "socket");
   s->mbufs = 0;
+  s->type = type;
   (*f)->type = FD_SOCKET;
   (*f)->readable = 1;
   (*f)->writable = 1;
@@ -132,13 +126,27 @@ int
 socket_write(struct socket *s, uint32 addr, uint len)
 {
   struct proc *p = myproc();
-  struct mbuf *m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct udp_hdr));
-  mbuf_append(m, len);
-  if (copyin(p->pagetable, m->head, addr, len) < 0) {
-    mbuf_free(m);
-    return -1;
+  struct mbuf *m;
+  switch (s->type) {
+  case SOCKET_TYPE_TCP:
+    m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr));
+    mbuf_append(m, len);
+    if (copyin(p->pagetable, m->head, addr, len) < 0) {
+      mbuf_free(m);
+      return -1;
+    }
+    tcp_send(m, s->remote_ip_addr, s->local_port, s->remote_port);
+    break;
+  case SOCKET_TYPE_UDP:
+    m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct udp_hdr));
+    mbuf_append(m, len);
+    if (copyin(p->pagetable, m->head, addr, len) < 0) {
+      mbuf_free(m);
+      return -1;
+    }
+    udp_tx(m, s->remote_ip_addr, s->local_port, s->remote_port);
+    break;
   }
-  udp_tx(m, s->remote_ip_addr, s->local_port, s->remote_port);
   return len;
 }
 

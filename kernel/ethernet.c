@@ -15,7 +15,7 @@ ethernet_tx(struct mbuf *m, uint16 type, const uint8 dst_mac[6])
   memmove(hdr->dst_mac, dst_mac, 6);
   memmove(hdr->src_mac, LOCAL_MAC_ADDR, 6);
   hdr->type = toggle_endian16(type);
-  if (e1000_send(m)) {
+  if (e1000_send(m) < 0) {
     printf("failed to send packet.\n");
     mbuf_free(m);
   }

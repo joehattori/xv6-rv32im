@@ -5,6 +5,10 @@
 
 extern const uint32 LOCAL_IP_ADDR;
 extern const uint8 LOCAL_MAC_ADDR[6];
+extern const uint32 GATEWAY_IP_ADDR;
+extern const uint8 GATEWAY_MAC_ADDR[6];
+
+#define IP_ADDR_BROADCAST 0xffffffff
 
 struct ip_hdr {
   uint8  hdr: 4; // header field should come before version field because of the endian difference.
@@ -20,5 +24,6 @@ struct ip_hdr {
   uint32 dst_ip_addr;
 } __attribute__((packed));
 
+uint16 checksum(const uint8*, uint, uint);
 void ip_tx(struct mbuf*, uint32, uint8);
 void ip_rx(struct mbuf*);

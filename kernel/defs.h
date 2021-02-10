@@ -11,6 +11,7 @@ struct mbuf;
 struct pipe;
 struct proc;
 struct socket;
+struct socketaddr_in;
 struct spinlock;
 struct sleeplock;
 struct stat;
@@ -157,7 +158,7 @@ void            syscall();
 
 // socket.c
 void            socket_init(void);
-int             socket_alloc(struct file**, uint32, uint16, uint16);
+int             socket_alloc(struct file**, uint32, uint16, uint16, uint8);
 int             socket_close(struct socket*);
 int             socket_read(struct socket*, uint32, uint);
 int             socket_write(struct socket*, uint32, uint32);
@@ -212,6 +213,8 @@ void            virtio_disk_intr(void);
 // utils.c
 uint16          toggle_endian16(uint16);
 uint32          toggle_endian32(uint32);
+int             time(int*);
+int             rand(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

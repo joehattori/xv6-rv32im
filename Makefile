@@ -24,6 +24,7 @@ OBJS = \
   $K/proc.o \
   $K/swtch.o \
   $K/trampoline.o \
+  $K/tcp.o \
   $K/trap.o \
   $K/syscall.o \
   $K/sysproc.o \
@@ -97,7 +98,7 @@ $U/initcode: $U/initcode.S
 tags: $(OBJS) _init
 	etags *.S *.c
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/dns.o
+ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/dns.o $U/http.o
 
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^

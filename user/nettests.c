@@ -2,9 +2,10 @@
 #include "kernel/stat.h"
 
 #include "dns.h"
+#include "http.h"
 #include "user.h"
 
-static void
+static void __attribute__((unused))
 ping(uint16 sport, uint16 dport, int attempts)
 {
   // 10.0.2.2, which qemu remaps to the external host,
@@ -42,21 +43,27 @@ ping(uint16 sport, uint16 dport, int attempts)
   }
 }
 
+static void
+get(char *host)
+{
+  http_get(host);
+}
+
 int
 main(int argc, char *argv[])
 {
-  uint16 dport = NET_TESTS_PORT;
+  // uint16 dport = NET_TESTS_PORT;
 
-  printf("nettests running on port %d\n", dport);
+  // printf("nettests running on port %d\n", dport);
 
-  printf("testing one ping: ");
-  ping(2000, dport, 2);
-  printf("OK\n");
+  // printf("testing one ping: ");
+  // ping(2000, dport, 2);
+  // printf("OK\n");
 
-  printf("testing single-process pings: ");
-  for (int i = 0; i < 100; i++)
-    ping(2000, dport, 1);
-  printf("OK\n");
+  // printf("testing single-process pings: ");
+  // for (int i = 0; i < 100; i++)
+  //   ping(2000, dport, 1);
+  // printf("OK\n");
 
   // This test fails sometimes.
   // printf("testing multi-process pings: ");
@@ -75,9 +82,14 @@ main(int argc, char *argv[])
   // printf("OK\n");
 
   printf("testing DNS\n");
-  dns_lookup("pdos.csail.mit.edu.");
+  char *domain = "pdos.csail.mit.edu.";
+  uint32 ip = dns_lookup(domain);
+  printf("IP address of %s is %x\n", domain, ip);
   printf("DNS OK\n");
 
+  printf("testing HTTP GET\n");
+  get("example.com.");
+  printf("HTTP GET OK\n");
 
   printf("all tests passed.\n");
   exit(0);

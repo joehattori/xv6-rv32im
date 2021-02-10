@@ -65,38 +65,38 @@ dns_req(uint8 *obuf, char *name)
 }
 
 // Process DNS response
-static void
+// TODO: make this ip a list.
+static uint32
 dns_rep(uint8 *ibuf, int cc)
 {
   struct dns_hdr *hdr = (struct dns_hdr*) ibuf;
   int len;
-  char *qname = 0;
   int record = 0;
 
-  if(!hdr->qr) {
+  if (!hdr->qr) {
     exit(1);
     printf("Not a DNS response for %d\n", toggle_endian16(hdr->id));
   }
 
-  if(hdr->id != toggle_endian16(6828))
+  if (hdr->id != toggle_endian16(6828))
     printf("DNS wrong id: %d\n", toggle_endian16(hdr->id));
   
-  if(hdr->rcode != 0) {
+  if (hdr->rcode != 0) {
     printf("DNS rcode error: %x\n", hdr->rcode);
     exit(1);
   }
 
   len = sizeof(struct dns_hdr);
 
-  for(int i =0; i < toggle_endian16(hdr->req_num); i++) {
+  for (int i = 0; i < toggle_endian16(hdr->req_num); i++) {
     char *qn = (char *) (ibuf+len);
-    qname = qn;
     decode_qname(qn);
     len += strlen(qn)+1;
     len += sizeof(struct dns_question);
   }
 
-  for(int i = 0; i < toggle_endian16(hdr->ans_num); i++) {
+  uint32 ret = 0;
+  for (int i = 0; i < toggle_endian16(hdr->ans_num); i++) {
     char *qn = (char *) (ibuf+len);
     
     if((int) qn[0] > 63) {  // compression?
@@ -111,35 +111,29 @@ dns_rep(uint8 *ibuf, int cc)
     len += sizeof(struct dns_data);
     if(toggle_endian16(d->type) == ARECORD && toggle_endian16(d->len) == 4) {
       record = 1;
-      printf("DNS arecord for %s is ", qname ? qname : "" );
-      uint8 *ip = (ibuf+len);
-      printf("%d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
-      if(ip[0] != 128 || ip[1] != 52 || ip[2] != 129 || ip[3] != 126) {
-        printf("wrong ip address");
-        exit(1);
-      }
+      for (int j = 0 ; j < 4; j++)
+        ret = (ret << 8) + *(ibuf + len + j);
       len += 4;
     }
   }
 
-  if(len != cc) {
+  if (len != cc) {
     printf("Processed %d data bytes but received %d\n", len, cc);
     exit(1);
   }
-  if(!record) {
+  if (!record) {
     printf("Didn't receive an arecord\n");
     exit(1);
   }
+  return ret;
 }
 
-void
-dns_lookup(char *name)
+uint32
+dns_lookup(char *name) // NEXT: make ip a pointer to an array.
 {
   #define N 1000
-  uint8 obuf[N];
-  uint8 ibuf[N];
+  uint8 obuf[N], ibuf[N];
   int fd;
-  int len;
 
   memset(obuf, 0, N);
   memset(ibuf, 0, N);
@@ -149,18 +143,17 @@ dns_lookup(char *name)
     exit(1);
   }
 
-  len = dns_req(obuf, name);
+  int len = dns_req(obuf, name);
   
   if(write(fd, obuf, len) < 0){
     fprintf(2, "dns: send() failed\n");
     exit(1);
   }
-  int cc = read(fd, ibuf, sizeof(ibuf));
-  if(cc < 0){
+  int cc;
+  if((cc = read(fd, ibuf, sizeof(ibuf))) < 0){
     fprintf(2, "dns: recv() failed\n");
     exit(1);
   }
-  dns_rep(ibuf, cc);
-
   close(fd);
+  return dns_rep(ibuf, cc);
 }

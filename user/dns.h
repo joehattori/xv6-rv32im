@@ -37,4 +37,4 @@ struct dns_data {
   uint16 len;
 } __attribute__((packed));
 
-void dns_lookup(char *);
+uint32 dns_lookup(char *);

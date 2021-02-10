@@ -6,8 +6,12 @@
 #include "types.h"
 #include "udp.h"
 
-const uint32 LOCAL_IP_ADDR = ((10 << 24) | (0 << 16) | (2 << 8) | (15 << 0));
+#define BUILD_IP_ADDR(v1, v2, v3, v4) (((v1) << 24) | ((v2) << 16) | ((v3) << 8) | ((v4) << 0))
+
+const uint32 LOCAL_IP_ADDR = BUILD_IP_ADDR(10, 0, 2, 15);
 const uint8 LOCAL_MAC_ADDR[6] = {0x52, 0x54, 0x0, 0x12, 0x34, 0x56};
+const uint32 GATEWAY_IP_ADDR = BUILD_IP_ADDR(10, 0, 2, 2);
+const uint8 GATEWAY_MAC_ADDR[6] = {0x52, 0x55, 0xa, 0x0, 0x2, 0x2};
 
 static uint
 is_ip_packet_valid(struct ip_hdr *hdr)
@@ -17,11 +21,11 @@ is_ip_packet_valid(struct ip_hdr *hdr)
   return 1;
 }
 
-static uint16
-checksum(const uint8 *addr, uint len)
+uint16
+checksum(const uint8 *addr, uint len, uint init)
 {
   uint16 nleft = len;
-  uint32 sum = 0;
+  uint32 sum = init;
   const uint16 *w = (const uint16*) addr;
 
   while (nleft > 1)  {
@@ -38,7 +42,6 @@ checksum(const uint8 *addr, uint len)
   return (uint16) (~sum);
 }
 
-
 void
 ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
 {
@@ -53,15 +56,18 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
   hdr->src_ip_addr = toggle_endian32(LOCAL_IP_ADDR);
   hdr->dst_ip_addr = toggle_endian32(dst_ip);
 
-  hdr->checksum = checksum((uint8*) hdr, sizeof(*hdr));
+  hdr->checksum = checksum((uint8*) hdr, sizeof(*hdr), 0);
 
   uint8 dst_mac[6];
+  memset(dst_mac, 0, sizeof(dst_mac));
   if (dst_ip) {
-    arp_resolve(dst_ip, dst_mac);
-    // uint ret = arp_resolve(dst_ip, dst_mac);
-    // if (ret != 1) {
-    //   printf("unresolved ip address %x.\n", dst_ip);
-    // }
+    uint ret = arp_resolve(dst_ip, dst_mac);
+    if (ret != 1) {
+      printf("unresolved %x\n", dst_ip);
+      memmove(dst_mac, GATEWAY_MAC_ADDR, 6);
+      // if (arp_resolve(GATEWAY_IP_ADDR, dst_mac) != 1) {
+      // }
+    }
   } else {
     memmove(dst_mac, ETHERNET_ADDR_BROADCAST, 6);
   }
