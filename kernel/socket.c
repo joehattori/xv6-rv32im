@@ -175,3 +175,8 @@ socket_recv_udp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
   release(&s->lock);
   wakeup(&s->mbufs);
 }
+
+void
+socket_recv_tcp(struct mbuf *m)
+{
+}

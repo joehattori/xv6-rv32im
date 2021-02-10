@@ -7,8 +7,6 @@
 #include "mbuf.h"
 #include "queue.h"
 
-#define IP_PROTO_TCP 6
-
 #define TCP_CB_TABLE_SIZE 16
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535

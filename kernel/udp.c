@@ -4,8 +4,6 @@
 #include "types.h"
 #include "udp.h"
 
-#define IP_PROTO_UDP 17
-
 static uint
 is_udp_packet_valid(struct udp_hdr *hdr)
 {

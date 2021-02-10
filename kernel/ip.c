@@ -84,5 +84,15 @@ ip_rx(struct mbuf *m)
     return;
   }
   uint16 len = toggle_endian16(hdr->len) - sizeof(*hdr);
-  udp_rx(m, len, hdr);
+  uint8 protocol = hdr->protocol;
+  switch (protocol) {
+  case IP_PROTO_TCP:
+    tcp_rx(m, len, hdr);
+    break;
+  case IP_PROTO_UDP:
+    udp_rx(m, len, hdr);
+    break;
+  default:
+    printf("ip_rx: unhandled protocol\n");
+  }
 }

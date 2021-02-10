@@ -9,6 +9,8 @@ extern const uint32 GATEWAY_IP_ADDR;
 extern const uint8 GATEWAY_MAC_ADDR[6];
 
 #define IP_ADDR_BROADCAST 0xffffffff
+#define IP_PROTO_UDP 17
+#define IP_PROTO_TCP 6
 
 struct ip_hdr {
   uint8  hdr: 4; // header field should come before version field because of the endian difference.
