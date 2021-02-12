@@ -8,12 +8,12 @@
 int
 main(int argc, char *argv[])
 {
-  uint16 dport = NET_TESTS_PORT;
+  uint16 dport = atoi(argv[1]);
 
-  if (argc < 2) {
-    fprintf(2, "Usage: ping <whatever you want>\n");
+  if (argc < 3) {
+    fprintf(2, "Usage: ping <port> <whatever you want>\n");
     exit(1);
   }
-  ping(2000, dport, 1, argv[1]);
+  ping(2000, dport, 1, argv[2]);
   exit(0);
 }

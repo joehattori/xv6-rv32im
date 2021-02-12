@@ -43,9 +43,8 @@ http_get(char host[])
       fprintf(2, "http: read() failed\n");
       exit(1);
     }
-    if (bytes == 0) {
+    if (bytes == 0 && received_bytes_count > 0)
       break;
-    }
     for (int i = 0; i < bytes; i++)
       printf("%c", resp[received_bytes_count + i]);
     received_bytes_count += bytes;

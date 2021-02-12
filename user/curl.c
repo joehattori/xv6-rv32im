@@ -12,5 +12,5 @@ main(int argc, char *argv[])
     return 1;
   }
   http_get(argv[1]);
-  return 0;
+  exit(0);
 }

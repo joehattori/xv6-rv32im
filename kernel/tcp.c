@@ -310,6 +310,9 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
 void
 tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
 {
+  uint excess = m->len - len;
+  if (excess > 0)
+    mbuf_trim(m, excess);
   struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_pop(m, sizeof(struct tcp_hdr));
   struct tcp_cb *cb, *fcb = 0, *lcb = 0;
 

@@ -83,8 +83,7 @@ ip_rx(struct mbuf *m)
     printf("invalid packet");
     return;
   }
-  // trim unproper length.
-  uint16 len = toggle_endian16(hdr->len) - sizeof(*hdr);
+  uint16 len = toggle_endian16(hdr->len) - sizeof(struct ip_hdr);
   uint8 protocol = hdr->protocol;
   switch (protocol) {
   case IP_PROTO_TCP:

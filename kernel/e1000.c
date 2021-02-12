@@ -161,8 +161,8 @@ e1000_recv(void)
       break;
 
     acquire(&e1000_lock);
-    struct mbuf *buf = rx_mbufs[desc_pos];
-    mbuf_append(buf, tail->length);
+    struct mbuf *m = rx_mbufs[desc_pos];
+    mbuf_append(m, tail->length);
 
     rx_mbufs[desc_pos] = mbuf_alloc(0);
     if (!rx_mbufs[desc_pos])
@@ -173,7 +173,7 @@ e1000_recv(void)
     regs[E1000_RDT] = desc_pos;
     release(&e1000_lock);
 
-    ethernet_rx(buf);
+    ethernet_rx(m);
 
     desc_pos = (desc_pos + 1) % RX_RING_SIZE;
   }
