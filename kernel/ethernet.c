@@ -27,7 +27,7 @@ ethernet_rx(struct mbuf *m)
   struct ethernet_hdr *hdr = (struct ethernet_hdr*) mbuf_pop(m, sizeof(struct ethernet_hdr));
   if (!hdr) {
     mbuf_free(m);
-    panic("ethernet_rx\n");
+    panic("ethernet_rx");
     return;
   }
   switch (toggle_endian16(hdr->type)) {

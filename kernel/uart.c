@@ -88,10 +88,8 @@ uartputc(int c)
 {
   acquire(&uart_tx_lock);
 
-  if(panicked){
-    for(;;)
-      ;
-  }
+  if(panicked)
+    for(;;);
 
   while(1){
     if(uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE){

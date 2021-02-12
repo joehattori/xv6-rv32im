@@ -94,6 +94,7 @@ int             pipewrite(struct pipe*, uint32, int);
 
 // printf.c
 void            printf(char*, ...);
+void            puts(char*, uint);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 

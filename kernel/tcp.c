@@ -2,9 +2,11 @@
 #include "defs.h"
 #include "socket.h"
 #include "spinlock.h"
+#include "ethernet.h"
 #include "tcp.h"
 #include "ip.h"
 #include "mbuf.h"
+#include "proc.h"
 #include "queue.h"
 
 #define TCP_CB_TABLE_SIZE 16
@@ -103,8 +105,8 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
 {
   struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_prepend(m, sizeof(struct tcp_hdr));
   memset(hdr, 0, sizeof(*hdr));
-  hdr->src_port = toggle_endian16(cb->port);
-  hdr->dst_port = toggle_endian16(cb->peer.port);
+  hdr->src_port = cb->port;
+  hdr->dst_port = cb->peer.port;
   hdr->seq = toggle_endian32(seq);
   hdr->ack = toggle_endian32(ack);
   hdr->off = (sizeof(struct tcp_hdr) >> 2) << 4;
@@ -114,7 +116,7 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
   hdr->urg = 0;
 
   uint32 self = toggle_endian32(LOCAL_IP_ADDR);
-  uint32 peer = toggle_endian32(cb->peer.addr);
+  uint32 peer = cb->peer.addr;
   uint32 pseudo = 0;
   pseudo += (self >> 16) & 0xffff;
   pseudo += self & 0xffff;
@@ -124,7 +126,7 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
   pseudo += toggle_endian16(sizeof(struct tcp_hdr) + len);
   hdr->checksum = checksum((uint8*) hdr, sizeof(struct tcp_hdr) + len, pseudo);
 
-  ip_tx(m, cb->peer.addr, IP_PROTO_TCP);
+  ip_tx(m, toggle_endian32(peer), IP_PROTO_TCP);
   tcp_txq_add(cb, hdr, sizeof(struct tcp_hdr) + len);
   return len;
 }
@@ -148,22 +150,18 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
       } else {
         seq = 0;
         ack = toggle_endian32(hdr->seq);
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
+        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN))
           ack++;
-        }
-        if (plen) {
+        if (plen)
           ack += plen;
-        }
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN)) {
+        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN))
           ack++;
-        }
       }
       tcp_tx(m, cb, seq, ack, TCP_FLG_RST, 0);
       return;
     case TCP_CB_STATE_LISTEN:
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
         return;
-      }
       if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
         seq = toggle_endian32(hdr->ack);
         ack = 0;
@@ -320,24 +318,22 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
   struct tcp_hdr *hdr = (struct tcp_hdr*) mbuf_pop(m, sizeof(struct tcp_hdr));
   struct tcp_cb *cb, *fcb = 0, *lcb = 0;
 
-  if (len < sizeof(struct tcp_hdr)) {
+  if (len < sizeof(struct tcp_hdr))
     return;
-  }
   uint32 src_ip_addr = iphdr->src_ip_addr;
+  uint16 src_port = hdr->src_port;
+  uint16 dst_port = hdr->dst_port;
   acquire(&lock);
   for (cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
     if (!cb->used) {
       if (!fcb) {
         fcb = cb;
       }
-    }
-    else if (cb->port == hdr->dst_port) {
-      if (cb->peer.addr == src_ip_addr && cb->peer.port == hdr->src_port) {
+    } else if (cb->port == dst_port) {
+      if (cb->peer.addr == src_ip_addr && cb->peer.port == src_port)
         break;
-      }
-      if (cb->state == TCP_CB_STATE_LISTEN && !lcb) {
+      if (cb->state == TCP_CB_STATE_LISTEN && !lcb)
         lcb = cb;
-      }
     }
   }
   if (cb == cb_table + TCP_CB_TABLE_SIZE) {
@@ -351,13 +347,20 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
     cb->state = lcb->state;
     cb->port = lcb->port;
     cb->peer.addr = src_ip_addr;
-    cb->peer.port = hdr->src_port;
+    cb->peer.port = src_port;
     cb->rcv.wnd = sizeof(cb->window);
     cb->parent = lcb;
   }
-  tcp_incoming_event(m, cb, hdr, len);
+  uint8 data_offset = hdr->off >> 4;
+  // 1 word = 4 bytes
+  uint16 diff = data_offset * 4 - sizeof(*hdr);
+  if (data_offset < 5 || 15 < data_offset)
+    printf("invalid data offset in tcp header.\n");
+  mbuf_trim(m, diff);
+  uint default_size = sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr);
+  tcp_incoming_event(mbuf_alloc(default_size), cb, hdr, len - diff);
   release(&lock);
-  return;
+  socket_recv_tcp(m, toggle_endian32(src_ip_addr), toggle_endian16(src_port), toggle_endian16(dst_port));
 }
 
 int
@@ -434,149 +437,24 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 loca
       }
     }
     if (tmp == cb_table + TCP_CB_TABLE_SIZE) {
-      cb->port = (uint16) local_port;
+      cb->port = toggle_endian16((uint16) local_port);
     }
     if (!cb->port) {
       release(&lock);
       return -1;
     }
   }
-  printf("connecting %d\n", cb->port);
-  cb->peer.addr = dst_ip;
-  cb->peer.port = dst_port;
+  cb->peer.addr = toggle_endian32(dst_ip);
+  cb->peer.port = toggle_endian16((uint16) dst_port);
   cb->rcv.wnd = sizeof(cb->window);
   cb->iss = (uint32) rand();
   tcp_tx(m, cb, cb->iss, 0, TCP_FLG_SYN, 0);
   cb->snd.nxt = cb->iss + 1;
   cb->state = TCP_CB_STATE_SYN_SENT;
-  while (cb->state == TCP_CB_STATE_SYN_SENT) {
+  while (cb->state == TCP_CB_STATE_SYN_SENT)
     sleep(&cb_table[soc], &lock);
-  }
   release(&lock);
   return 0;
-}
-
-int
-tcp_bind(int soc, struct socketaddr *addr, int addrlen)
-{
-  struct socketaddr_in *sin;
-  struct tcp_cb *cb;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
-    return -1;
-  }
-  // if (addr->sa_family != AF_INET) {
-  //   return -1;
-  // }
-  sin = (struct socketaddr_in *)addr;
-  acquire(&lock);
-  for (cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
-    if (cb->port == sin->sin_port) {
-      release(&lock);
-      return -1;
-    }
-  }
-  cb = &cb_table[soc];
-  if (!cb->used || cb->state != TCP_CB_STATE_CLOSED) {
-    release(&lock);
-    return -1;
-  }
-  cb->port = sin->sin_port;
-  release(&lock);
-  return 0;
-}
-
-int
-tcp_listen(int soc, int backlog)
-{
-  struct tcp_cb *cb;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
-    return -1;
-  }
-  acquire(&lock);
-  cb = &cb_table[soc];
-  if (!cb->used || cb->state != TCP_CB_STATE_CLOSED || !cb->port) {
-    release(&lock);
-    return -1;
-  }
-  cb->state = TCP_CB_STATE_LISTEN;
-  release(&lock);
-  return 0;
-}
-
-int
-tcp_accept(int soc, struct socketaddr *addr, int *addrlen)
-{
-  struct tcp_cb *cb, *backlog;
-  struct queue_entry *entry;
-  struct socketaddr_in *sin = 0;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
-    return -1;
-  }
-  if (addr) {
-    if (!addrlen) {
-      return -1;
-    }
-    if (*addrlen < sizeof(struct socketaddr_in)) {
-      return -1;
-    }
-    *addrlen = sizeof(struct socketaddr_in);
-    sin = (struct socketaddr_in *)addr;
-  }
-  acquire(&lock);
-  cb = &cb_table[soc];
-  if (!cb->used) {
-    release(&lock);
-    return -1;
-  }
-  if (cb->state != TCP_CB_STATE_LISTEN) {
-    release(&lock);
-    return -1;
-  }
-  while ((entry = queue_pop(&cb->backlog)) == 0) {
-    sleep(cb, &lock);
-  }
-  backlog = entry->data;
-  kfree((char*)entry);
-  if (sin) {
-    // sin->sin_family = AF_INET;
-    sin->sin_addr = backlog->peer.addr;
-    sin->sin_port = backlog->peer.port;
-  }
-  release(&lock);
-  return ((uint32) backlog - (uint32) cb_table) / sizeof(*backlog);
-}
-
-int
-tcp_recv(int soc, uint8 *buf, uint size)
-{
-  struct tcp_cb *cb;
-  uint total, len;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
-    return -1;
-  }
-  acquire(&lock);
-  cb = &cb_table[soc];
-  if (!cb->used) {
-    release(&lock);
-    return -1;
-  }
-  while (!(total = sizeof(cb->window) - cb->rcv.wnd)) {
-    if (!TCP_CB_STATE_RX_ISREADY(cb)) {
-      release(&lock);
-      return 0;
-    }
-    sleep(cb, &lock);
-  }
-  len = size < total ? size : total;
-  memmove(buf, cb->window, len);
-  memmove(cb->window, cb->window + len, total - len);
-  cb->rcv.wnd += len;
-  release(&lock);
-  return len;
 }
 
 int
@@ -584,9 +462,8 @@ tcp_send(struct mbuf *m, int soc, uint len)
 {
   struct tcp_cb *cb;
 
-  if (TCP_SOCKET_ISINVALID(soc)) {
+  if (TCP_SOCKET_ISINVALID(soc))
     return -1;
-  }
   acquire(&lock);
   cb = &cb_table[soc];
   if (!cb->used) {

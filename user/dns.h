@@ -2,7 +2,8 @@
 
 #include "kernel/types.h"
 
-#define ARECORD 0x1
+#define ARECORD 1
+#define CNAME   5
 #define QCLASS  0x1
 #define GOOGLE_NAME_SERVER ((8 << 24) | (8 << 16) | (8 << 8) | 8)
 

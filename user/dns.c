@@ -65,12 +65,11 @@ dns_req(uint8 *obuf, char *name)
 }
 
 // Process DNS response
-// TODO: make this ip a list.
+// TODO: handle multiple requests.
 static uint32
-dns_rep(uint8 *ibuf, int cc)
+dns_rep(uint8 *ibuf, const int cc)
 {
   struct dns_hdr *hdr = (struct dns_hdr*) ibuf;
-  int len;
   int record = 0;
 
   if (!hdr->qr) {
@@ -86,7 +85,7 @@ dns_rep(uint8 *ibuf, int cc)
     exit(1);
   }
 
-  len = sizeof(struct dns_hdr);
+  int len = sizeof(struct dns_hdr);
 
   for (int i = 0; i < toggle_endian16(hdr->req_num); i++) {
     char *qn = (char *) (ibuf+len);
@@ -109,11 +108,21 @@ dns_rep(uint8 *ibuf, int cc)
       
     struct dns_data *d = (struct dns_data *) (ibuf+len);
     len += sizeof(struct dns_data);
-    if(toggle_endian16(d->type) == ARECORD && toggle_endian16(d->len) == 4) {
-      record = 1;
-      for (int j = 0 ; j < 4; j++)
-        ret = (ret << 8) + *(ibuf + len + j);
-      len += 4;
+    uint16 type = toggle_endian16(d->type);
+    switch (type) {
+    case ARECORD:
+      if (toggle_endian16(d->len) == 4) {
+        record = 1;
+        for (int j = 0 ; j < 4; j++)
+          ret = (ret << 8) + *(ibuf + len + j);
+        len += 4;
+      }
+      break;
+    case CNAME:
+      len += toggle_endian16(d->len);
+      break;
+    default:
+      printf("DNS: Unhandled type\n");
     }
   }
 
@@ -129,20 +138,21 @@ dns_rep(uint8 *ibuf, int cc)
 }
 
 uint32
-dns_lookup(char *name) // NEXT: make ip a pointer to an array.
+dns_lookup(char *name)
 {
   #define N 1000
   uint8 obuf[N], ibuf[N];
-  int fd;
 
   memset(obuf, 0, N);
   memset(ibuf, 0, N);
   
-  if((fd = connect(GOOGLE_NAME_SERVER, 10000, 53)) < 0){
+  int fd;
+  if((fd = connect(GOOGLE_NAME_SERVER, 10000, 53, 1)) < 0){
     fprintf(2, "ping: connect() failed\n");
     exit(1);
   }
 
+  strcpy(name + strlen(name), ".");
   int len = dns_req(obuf, name);
   
   if(write(fd, obuf, len) < 0){
@@ -155,5 +165,5 @@ dns_lookup(char *name) // NEXT: make ip a pointer to an array.
     exit(1);
   }
   close(fd);
-  return dns_rep(ibuf, cc);
+  return dns_rep(ibuf, (const int) cc);
 }

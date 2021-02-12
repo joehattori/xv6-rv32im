@@ -32,7 +32,6 @@ struct tcp_txq_head {
 struct tcp_cb {
   uint8 used;
   uint8 state;
-  struct netif *iface;
   uint16 port;
   struct {
     uint32 addr;

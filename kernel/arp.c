@@ -79,14 +79,14 @@ arp_rx(struct mbuf *m)
         arp_table[i].used = 1;
         arp_table[i].ip_addr = sender_ip;
         memmove(arp_table[i].mac_addr, sender_mac, 6);
-        printf("updated %x to %x:%x:%x:%x:%x:%x\n",
-          arp_table[i].ip_addr,
-          arp_table[i].mac_addr[0],
-          arp_table[i].mac_addr[1],
-          arp_table[i].mac_addr[2],
-          arp_table[i].mac_addr[3],
-          arp_table[i].mac_addr[4],
-          arp_table[i].mac_addr[5]);
+        // printf("updated %x to %x:%x:%x:%x:%x:%x\n",
+        //   arp_table[i].ip_addr,
+        //   arp_table[i].mac_addr[0],
+        //   arp_table[i].mac_addr[1],
+        //   arp_table[i].mac_addr[2],
+        //   arp_table[i].mac_addr[3],
+        //   arp_table[i].mac_addr[4],
+        //   arp_table[i].mac_addr[5]);
         break;
       }
     }

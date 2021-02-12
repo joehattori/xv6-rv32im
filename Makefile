@@ -99,7 +99,7 @@ $U/initcode: $U/initcode.S
 tags: $(OBJS) _init
 	etags *.S *.c
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/dns.o $U/http.o
+ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/dns.o $U/netlib.o
 
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
@@ -129,6 +129,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
 	$U/_cat\
+	$U/_curl\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -142,6 +143,7 @@ UPROGS=\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_nettests\
+	$U/_ping\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\

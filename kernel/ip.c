@@ -64,7 +64,6 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
   if (dst_ip) {
     uint ret = arp_resolve(dst_ip, dst_mac);
     if (ret != 1) {
-      printf("unresolved %x\n", dst_ip);
       memmove(dst_mac, GATEWAY_MAC_ADDR, 6);
       // if (arp_resolve(GATEWAY_IP_ADDR, dst_mac) != 1) {
       // }
@@ -79,11 +78,12 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
 void
 ip_rx(struct mbuf *m)
 {
-  struct ip_hdr *hdr = (struct ip_hdr*)mbuf_pop(m, sizeof(struct ip_hdr));
+  struct ip_hdr *hdr = (struct ip_hdr*) mbuf_pop(m, sizeof(struct ip_hdr));
   if (!is_ip_packet_valid(hdr)) {
     printf("invalid packet");
     return;
   }
+  // trim unproper length.
   uint16 len = toggle_endian16(hdr->len) - sizeof(*hdr);
   uint8 protocol = hdr->protocol;
   switch (protocol) {

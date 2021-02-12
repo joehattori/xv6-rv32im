@@ -115,6 +115,14 @@ printf(char *fmt, ...)
 }
 
 void
+puts(char *s, uint len)
+{
+  for (int i = 0; i < len; i++) {
+    consputc(s[i]);
+  }
+}
+
+void
 panic(char *s)
 {
   pr.locking = 0;

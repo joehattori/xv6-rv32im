@@ -33,6 +33,21 @@ socket_init(void)
 int
 socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 remote_port, uint8 type)
 {
+  // check if there is already a matched socket.
+  struct socket *cur = sockets;
+  while (cur) {
+    if (cur->remote_ip_addr == remote_ip_addr &&
+      cur->local_port == local_port &&
+      cur->remote_port == remote_port) {
+      release(&lock);
+      if (*f)
+        fileclose(*f);
+      printf("socket already matched\n");
+      return -1;
+    }
+    cur = cur->nxt;
+  }
+
   *f = filealloc();
   struct socket *s = (struct socket*) kalloc();
   s->remote_ip_addr = remote_ip_addr;
@@ -41,38 +56,21 @@ socket_alloc(struct file **f, uint32 remote_ip_addr, uint16 local_port, uint16 r
   initlock(&s->lock, "socket");
   s->mbufs = 0;
   s->type = type;
+  (*f)->type = FD_SOCKET;
+  (*f)->readable = 1;
+  (*f)->writable = 1;
+  (*f)->sock = s;
+  acquire(&lock);
+  s->nxt = sockets;
+  sockets = s;
+  release(&lock);
+
   if (type == SOCKET_TYPE_TCP) {
     s->tcp_cb_offset = tcp_open();
     struct mbuf *m = mbuf_alloc(sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr));
     if (tcp_connect(m, s->tcp_cb_offset, remote_ip_addr, remote_port, local_port) < 0)
       printf("socket_alloc(): failed to tcp_connect\n");
-    printf("tcpconnected\n");
   }
-  (*f)->type = FD_SOCKET;
-  (*f)->readable = 1;
-  (*f)->writable = 1;
-  (*f)->sock = s;
-
-  // check if there is already a matched socket.
-  struct socket *cur = sockets;
-  while (cur) {
-    if (cur->remote_ip_addr == remote_ip_addr &&
-      cur->local_port == local_port &&
-      cur->remote_port == remote_port) {
-      release(&lock);
-      if (s)
-        kfree(s);
-      if (*f)
-        fileclose(*f);
-      return -1;
-    }
-    cur = cur->nxt;
-  }
-
-  acquire(&lock);
-  s->nxt = sockets;
-  sockets = s;
-  release(&lock);
   return 0;
 }
 
@@ -189,6 +187,8 @@ socket_recv_tcp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
   struct socket *s = sockets;
   acquire(&lock);
   // find the corresponding socket.
+  if (!s)
+    printf("no sockets\n");
   while (s) {
     if (s->remote_ip_addr == src_ip_addr && s->local_port == dst_port && s->remote_port == src_port)
       break;
@@ -198,7 +198,7 @@ socket_recv_tcp(struct mbuf *m, uint32 src_ip_addr, uint16 src_port, uint16 dst_
 
   // when no socket found
   if (s == 0) {
-    printf("socket not found\n");
+    printf("recv_tcp: socket not found\n");
     mbuf_free(m);
     return;
   }
