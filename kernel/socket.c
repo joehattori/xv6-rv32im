@@ -106,6 +106,7 @@ socket_read(struct socket *s, uint32 addr, uint len)
 {
   struct proc *p = myproc();
   acquire(&s->lock);
+
   // sleep the process while socket's mbufs is empty.
   if (!s->mbufs) {
     while (!s->mbufs)

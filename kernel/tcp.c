@@ -13,17 +13,17 @@
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
 
-#define TCP_CB_STATE_CLOSED    0
-#define TCP_CB_STATE_LISTEN    1
-#define TCP_CB_STATE_SYN_SENT  2
-#define TCP_CB_STATE_SYN_RCVD  3
+#define TCP_CB_STATE_CLOSED      0
+#define TCP_CB_STATE_LISTEN      1
+#define TCP_CB_STATE_SYN_SENT    2
+#define TCP_CB_STATE_SYN_RCVD    3
 #define TCP_CB_STATE_ESTABLISHED 4
 #define TCP_CB_STATE_FIN_WAIT1   5
 #define TCP_CB_STATE_FIN_WAIT2   6
-#define TCP_CB_STATE_CLOSING   7
+#define TCP_CB_STATE_CLOSING     7
 #define TCP_CB_STATE_TIME_WAIT   8
 #define TCP_CB_STATE_CLOSE_WAIT  9
-#define TCP_CB_STATE_LAST_ACK  10
+#define TCP_CB_STATE_LAST_ACK   10
 
 #define TCP_FLG_FIN 0x01
 #define TCP_FLG_SYN 0x02
@@ -50,18 +50,16 @@ tcp_txq_add(struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
 {
   struct tcp_txq_entry *txq;
 
-  txq = (struct tcp_txq_entry *)kalloc();
-  if (!txq) {
+  txq = (struct tcp_txq_entry*) kalloc();
+  if (!txq)
     return -1;
-  }
-  txq->segment = (struct tcp_hdr *)kalloc();
+  txq->segment = (struct tcp_hdr*) kalloc();
   if (!txq->segment) {
     kfree((char*)txq);
     return -1;
   }
   memmove(txq->segment, hdr, len);
   txq->len = len;
-  //gettimeofday(&txq->timestamp, 0);
   txq->next = 0;
 
   // set txq to next of tail entry
@@ -85,15 +83,15 @@ tcp_cb_clear(struct tcp_cb *cb)
   while (cb->txq.head) {
     txq = cb->txq.head;
     cb->txq.head = txq->next;
-    kfree((char*)txq->segment);
-    kfree((char*)txq);
+    kfree((char*) txq->segment);
+    kfree((char*) txq);
   }
   while (1) {
     struct queue_entry *entry = queue_pop(&cb->backlog);
     if (!entry)
       break;
     backlog = entry->data;
-    kfree((char*)entry);
+    kfree((char*) entry);
     tcp_cb_clear(backlog);
   }
   memset(cb, 0, sizeof(*cb));
@@ -135,15 +133,13 @@ static void
 tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
 {
   uint32 seq, ack;
-  uint hlen, plen;
 
-  hlen = ((hdr->off >> 4) << 2);
-  plen = len - hlen;
+  uint hlen = ((hdr->off >> 4) << 2);
+  uint plen = len - hlen;
   switch (cb->state) {
     case TCP_CB_STATE_CLOSED:
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
         return;
-      }
       if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
         seq = toggle_endian32(hdr->ack);
         ack = 0;
@@ -255,9 +251,8 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
       }
       // send window update
       if (cb->state == TCP_CB_STATE_FIN_WAIT1) {
-        if (toggle_endian32(hdr->ack) == cb->snd.nxt) {
+        if (toggle_endian32(hdr->ack) == cb->snd.nxt)
           cb->state = TCP_CB_STATE_FIN_WAIT2;
-        }
       } else if (cb->state == TCP_CB_STATE_CLOSING) {
         if (toggle_endian32(hdr->ack) == cb->snd.nxt) {
           cb->state = TCP_CB_STATE_TIME_WAIT;
@@ -268,7 +263,7 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
       break;
     case TCP_CB_STATE_LAST_ACK:
       wakeup(cb);
-      tcp_cb_clear(cb); /* TCP_CB_STATE_CLOSED */
+      tcp_cb_clear(cb);
       return;
   }
   if (plen) {
@@ -326,9 +321,8 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
   acquire(&lock);
   for (cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
     if (!cb->used) {
-      if (!fcb) {
+      if (!fcb)
         fcb = cb;
-      }
     } else if (cb->port == dst_port) {
       if (cb->peer.addr == src_ip_addr && cb->peer.port == src_port)
         break;
@@ -366,15 +360,13 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
 int
 tcp_open()
 {
-  struct tcp_cb *cb;
-
   acquire(&lock);
-  for (cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
-    if (!cb->used) {
-      cb->used = 1;
-      release(&lock);
-      return ((uint32) cb - (uint32) cb_table) / sizeof(*cb);
-    }
+  for (struct tcp_cb *cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
+    if (cb->used)
+      continue;
+    cb->used = 1;
+    release(&lock);
+    return ((uint32) cb - (uint32) cb_table) / sizeof(*cb);
   }
   release(&lock);
   return -1;
@@ -383,13 +375,10 @@ tcp_open()
 int
 tcp_close(struct mbuf *m, int soc)
 {
-  struct tcp_cb *cb;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
+  if (TCP_SOCKET_ISINVALID(soc))
     return -1;
-  }
   acquire(&lock);
-  cb = &cb_table[soc];
+  struct tcp_cb *cb = &cb_table[soc];
   if (!cb->used) {
     release(&lock);
     return -1;
@@ -411,7 +400,7 @@ tcp_close(struct mbuf *m, int soc)
     default:
       break;
   }
-  tcp_cb_clear(cb); /* TCP_CB_STATE_CLOSED */
+  tcp_cb_clear(cb);
   release(&lock);
   return 0;
 }
@@ -419,18 +408,16 @@ tcp_close(struct mbuf *m, int soc)
 int
 tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 local_port)
 {
-  struct tcp_cb *cb, *tmp;
-
-  if (TCP_SOCKET_ISINVALID(soc)) {
+  if (TCP_SOCKET_ISINVALID(soc))
     return -1;
-  }
   acquire(&lock);
-  cb = &cb_table[soc];
+  struct tcp_cb *cb = &cb_table[soc];
   if (!cb->used || cb->state != TCP_CB_STATE_CLOSED) {
     release(&lock);
     return -1;
   }
   if (!cb->port) {
+    struct tcp_cb *tmp;
     for (tmp = cb_table; tmp < cb_table + TCP_CB_TABLE_SIZE; tmp++) {
       if (tmp->used && tmp->port == toggle_endian16((uint16) local_port)) {
         break;
@@ -460,12 +447,10 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 loca
 int
 tcp_send(struct mbuf *m, int soc, uint len)
 {
-  struct tcp_cb *cb;
-
   if (TCP_SOCKET_ISINVALID(soc))
     return -1;
   acquire(&lock);
-  cb = &cb_table[soc];
+  struct tcp_cb *cb = &cb_table[soc];
   if (!cb->used) {
     release(&lock);
     return -1;
