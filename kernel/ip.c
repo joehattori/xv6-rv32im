@@ -84,6 +84,9 @@ ip_rx(struct mbuf *m)
     return;
   }
   uint16 len = toggle_endian16(hdr->len) - sizeof(struct ip_hdr);
+
+  mbuf_trim(m, m->len - len);
+
   uint8 protocol = hdr->protocol;
   switch (protocol) {
   case IP_PROTO_TCP:

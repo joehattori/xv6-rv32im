@@ -8,8 +8,8 @@ int
 main(int argc, char *argv[])
 {
   if (argc < 2) {
-    fprintf(2, "Usage: curl <url>\n");
-    return 1;
+    fprintf(2, "Usage: %s <url>\n", argv[0]);
+    exit(1);
   }
   http_get(argv[1]);
   exit(0);

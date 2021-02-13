@@ -73,7 +73,6 @@ CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
@@ -193,7 +192,7 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 run-docker:
-	docker run -it -v $(PWD):/work -P --rm joehattori/xv6-rv32im:latest bash
+	docker run -it -v $(PWD):/work -P --rm --name xv6-rv32im joehattori/xv6-rv32im:latest bash
 
 py-server-udp:
 	python3 server-udp.py $(SERVERPORT)

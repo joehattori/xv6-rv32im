@@ -8,7 +8,11 @@
 int
 main(int argc, char *argv[])
 {
-  uint16 dport = NET_TESTS_PORT;
+  if (argc < 2) {
+    fprintf(2, "Usage: %s <port>\n", argv[0]);
+    exit(1);
+  }
+  uint16 dport = atoi(argv[1]);
 
   printf("nettests running on port %d\n", dport);
 
@@ -45,8 +49,8 @@ main(int argc, char *argv[])
   printf("DNS OK\n");
 
   printf("testing HTTP GET\n");
-  http_get("example.com");
-  printf("HTTP GET OK\n");
+  http_get("x.com");
+  printf("\nHTTP GET OK\n");
 
   printf("all tests passed.\n");
   exit(0);

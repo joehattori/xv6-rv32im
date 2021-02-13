@@ -11,7 +11,7 @@ main(int argc, char *argv[])
   uint16 dport = atoi(argv[1]);
 
   if (argc < 3) {
-    fprintf(2, "Usage: ping <port> <whatever you want>\n");
+    fprintf(2, "Usage: %s <port> <whatever you want>\n", argv[0]);
     exit(1);
   }
   ping(2000, dport, 1, argv[2]);
