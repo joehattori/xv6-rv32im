@@ -75,7 +75,7 @@ kvminithart()
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page-table pages.
 //
-// The risc-v Sv39 scheme has three levels of page-table
+// The risc-v Sv32 scheme has two levels of page-table
 // pages. A page-table page contains 1024 32-bit PTEs.
 // A 32-bit virtual address is split into three fields:
 //   22..31 -- 10 bits of level-1 index.
