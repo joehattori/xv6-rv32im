@@ -15,7 +15,7 @@ encode_qname(char *qn, char *host)
       for(char *d = l; d < c; d++) {
         *qn++ = *d;
       }
-      l = c+1; // skip .
+      l = c+1; // skip '.'
     }
   }
   *qn = '\0';
@@ -147,7 +147,7 @@ dns_lookup(char *name)
   memset(ibuf, 0, N);
   
   int fd;
-  if((fd = connect(GOOGLE_NAME_SERVER, 10000, 53, 1)) < 0){
+  if((fd = connect(GOOGLE_NAME_SERVER, 53, 1)) < 0){
     fprintf(2, "ping: connect() failed\n");
     exit(1);
   }

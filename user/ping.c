@@ -13,6 +13,6 @@ main(int argc, char *argv[])
     fprintf(2, "Usage: %s <port> <whatever you want>\n", argv[0]);
     exit(1);
   }
-  ping(2000, dport, 1, argv[2]);
+  ping(dport, 1, argv[2]);
   exit(0);
 }

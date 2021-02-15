@@ -54,12 +54,13 @@ struct tcp_cb {
   } rcv;
   uint32 irs;
   struct tcp_txq_head txq;
-  uint8 buf[4096];
+  uint8 buf[8192];
   struct tcp_cb *parent;
   struct queue_head backlog;
 };
 
-int  tcp_open();
+int  tcp_open(uint32, uint16);
+int  tcp_close(int);
 int  tcp_connect(struct mbuf*, int, uint32, uint32);
 int  tcp_send(struct mbuf*, int, uint);
 void tcp_rx(struct mbuf*, uint16, struct ip_hdr*);

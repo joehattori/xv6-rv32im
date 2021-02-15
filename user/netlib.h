@@ -41,4 +41,4 @@ struct dns_data {
 uint32 dns_lookup(char *);
 
 uint http_get(const char *);
-void ping(uint16, uint16, int, char*);
+void ping(uint16, int, char*);

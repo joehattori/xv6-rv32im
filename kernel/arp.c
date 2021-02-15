@@ -79,14 +79,6 @@ arp_rx(struct mbuf *m)
         arp_table[i].used = 1;
         arp_table[i].ip_addr = sender_ip;
         memmove(arp_table[i].mac_addr, sender_mac, 6);
-        // printf("updated %x to %x:%x:%x:%x:%x:%x\n",
-        //   arp_table[i].ip_addr,
-        //   arp_table[i].mac_addr[0],
-        //   arp_table[i].mac_addr[1],
-        //   arp_table[i].mac_addr[2],
-        //   arp_table[i].mac_addr[3],
-        //   arp_table[i].mac_addr[4],
-        //   arp_table[i].mac_addr[5]);
         break;
       }
     }
@@ -119,22 +111,7 @@ arp_resolve(uint32 ip_addr, uint8 mac_addr[6])
     return -1;
   }
 
-  // entry->used = 1;
-  // entry->ip_addr = ip_addr;
-  // arp_tx(ARP_OR_REQUEST, (uint8*) ETHERNET_ADDR_ANY, ETHERNET_ADDR_BROADCAST, ip_addr);
   arp_tx(ARP_OR_REQUEST, (uint8*) GATEWAY_MAC_ADDR, ETHERNET_ADDR_BROADCAST, ip_addr);
-
-  // TODO: Fix the code below. Just a workaround.
-  // while (1) {
-  //   entry = arp_table_select(ip_addr);
-  //   if (entry) {
-  //     printf("precopy: %x %x:%x:%x:%x:%x:%x\n", ip_addr, entry->mac_addr[0], entry->mac_addr[1], entry->mac_addr[2], entry->mac_addr[3], entry->mac_addr[4], entry->mac_addr[5]);
-  //     memmove(mac_addr, entry->mac_addr, 6);
-  //     printf("copied: %x:%x:%x:%x:%x:%x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  //     release(&lock);
-  //     return 1;
-  //   }
-  // }
 
   release(&lock);
   return 0;

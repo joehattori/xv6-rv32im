@@ -17,12 +17,12 @@ main(int argc, char *argv[])
 
   char msg[] = "Hello, World!";
   printf("testing one ping: ");
-  ping(2000, dport, 2, msg);
+  ping(dport, 2, msg);
   printf("OK\n");
 
   printf("testing single-process pings: ");
   for (int i = 0; i < 100; i++)
-    ping(2000, dport, 1, msg);
+    ping(dport, 1, msg);
   printf("OK\n");
 
   // This test fails sometimes.

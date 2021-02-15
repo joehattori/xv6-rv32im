@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "tcp.h"
+#include "udp.h"
 
 volatile static int started = 0;
 
@@ -33,6 +34,7 @@ main()
     socket_init();      // socket
     arp_init();         // arp
     tcp_init();         // tcp
+    udp_init();         // udp
 
     userinit();      // first user process
     __sync_synchronize();

@@ -63,11 +63,8 @@ ip_tx(struct mbuf *m, uint32 dst_ip, uint8 protocol)
   memset(dst_mac, 0, sizeof(dst_mac));
   if (dst_ip) {
     uint ret = arp_resolve(dst_ip, dst_mac);
-    if (ret != 1) {
+    if (ret != 1)
       memmove(dst_mac, GATEWAY_MAC_ADDR, 6);
-      // if (arp_resolve(GATEWAY_IP_ADDR, dst_mac) != 1) {
-      // }
-    }
   } else {
     memmove(dst_mac, ETHERNET_ADDR_BROADCAST, 6);
   }
@@ -91,10 +88,10 @@ ip_rx(struct mbuf *m)
   switch (protocol) {
   case IP_PROTO_TCP:
     tcp_rx(m, len, hdr);
-    break;
+    return;
   case IP_PROTO_UDP:
     udp_rx(m, len, hdr);
-    break;
+    return;
   default:
     printf("ip_rx: unhandled protocol\n");
   }

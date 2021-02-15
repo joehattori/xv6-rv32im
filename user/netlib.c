@@ -34,11 +34,10 @@ http_get(const char *url)
   char *path = malloc(80);
   split_uri(url, host, path);
   uint32 ip_addr = dns_lookup(host);
-  uint32 local_port = 2000;
   uint32 remote_port = 80;
 
   int fd;
-  if ((fd = connect(ip_addr, local_port, remote_port, 0)) < 0) {
+  if ((fd = connect(ip_addr, remote_port, 0)) < 0) {
     fprintf(2, "http: connect() failed\n");
     exit(1);
   }
@@ -86,7 +85,7 @@ http_get(const char *url)
 }
 
 void
-ping(uint16 sport, uint16 dport, int attempts, char *msg)
+ping(uint16 dport, int attempts, char *msg)
 {
   // 10.0.2.2, which qemu remaps to the external host,
   // i.e. the machine you're running qemu on.
@@ -98,7 +97,7 @@ ping(uint16 sport, uint16 dport, int attempts, char *msg)
   char obuf[1000];
   memmove(obuf, msg, strlen(msg));
 
-  int fd = connect(dst, sport, dport, 1);
+  int fd = connect(dst, dport, 1);
   if(fd < 0){
     fprintf(2, "ping: connect() failed\n");
     exit(1);

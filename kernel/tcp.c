@@ -57,12 +57,10 @@ tcp_txq_add(struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
   txq->len = len;
   txq->next = 0;
 
-  // set txq to next of tail entry
   if (cb->txq.head == 0)
     cb->txq.head = txq;
   else
     cb->txq.tail->next = txq;
-  // update tail entry
   cb->txq.tail = txq;
 
   return 0;
@@ -354,12 +352,17 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
 }
 
 int
-tcp_open()
+tcp_open(uint32 ip, uint16 port)
 {
   acquire(&lock);
   for (struct tcp_cb *cb = cb_table; cb < cb_table + TCP_CB_TABLE_SIZE; cb++) {
-    if (cb->used)
+    if (cb->used) {
+      if (cb->peer.addr == ip && cb->peer.port == port) {
+        printf("tcp_open(): reusing same address and port\n");
+        return -1;
+      }
       continue;
+    }
     cb->used = 1;
     release(&lock);
     return ((uint32) cb - (uint32) cb_table) / sizeof(*cb);
@@ -369,13 +372,14 @@ tcp_open()
 }
 
 int
-tcp_close(struct mbuf *m, int soc)
+tcp_close(int soc)
 {
   if (TCP_SOCKET_ISINVALID(soc))
     return -1;
 
   acquire(&lock);
   struct tcp_cb *cb = &cb_table[soc];
+
   if (!cb->used) {
     release(&lock);
     return -1;
@@ -383,13 +387,13 @@ tcp_close(struct mbuf *m, int soc)
   switch (cb->state) {
   case TCP_CB_STATE_SYN_RCVD:
   case TCP_CB_STATE_ESTABLISHED:
-    tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
+    tcp_tx_empty(cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
     cb->state = TCP_CB_STATE_FIN_WAIT1;
     cb->snd.nxt++;
     sleep(cb, &lock);
     break;
   case TCP_CB_STATE_CLOSE_WAIT:
-    tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
+    tcp_tx_empty(cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
     cb->state = TCP_CB_STATE_LAST_ACK;
     cb->snd.nxt++;
     sleep(cb, &lock);
@@ -416,15 +420,14 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
   }
 
   if (!cb->port) {
-    int offset = time(0) % 1024;
-    for (uint port = USABLE_PORT_MIN + offset; port <= USABLE_PORT_MAX; port++) {
-      struct tcp_cb *tmp;
-      for (tmp = cb_table; tmp < cb_table + TCP_CB_TABLE_SIZE; tmp++) {
-        if (tmp->used && tmp->port == toggle_endian16(port)) {
+    for (uint port = USABLE_PORT_MIN; port <= USABLE_PORT_MAX; port++) {
+      struct tcp_cb *_cb;
+      for (_cb = cb_table; _cb < cb_table + TCP_CB_TABLE_SIZE; _cb++) {
+        if (_cb->used && _cb->port == toggle_endian16(port)) {
           break;
         }
       }
-      if (tmp == cb_table + TCP_CB_TABLE_SIZE) {
+      if (_cb == cb_table + TCP_CB_TABLE_SIZE) {
         cb->port = toggle_endian16(port);
         break;
       }
@@ -434,6 +437,7 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
       return -1;
     }
   }
+
   cb->peer.addr = toggle_endian32(dst_ip);
   cb->peer.port = toggle_endian16((uint16) dst_port);
   cb->rcv.wnd = sizeof(cb->buf);
@@ -471,7 +475,7 @@ tcp_send(struct mbuf *m, int soc, uint len)
 
 int tcp_read(struct socket *s, uint32 addr, uint32 size)
 {
-  uint soc = s->tcp_cb_offset;
+  uint soc = s->cb_idx;
 
   if (TCP_SOCKET_ISINVALID(soc))
     return -1;
