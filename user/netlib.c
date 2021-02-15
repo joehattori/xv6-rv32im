@@ -1,12 +1,38 @@
 #include "kernel/types.h"
 
-#include "dns.h"
 #include "netlib.h"
 #include "user.h"
 
-uint
-http_get(char host[])
+static void
+split_uri(const char *url, char *host_buf, char *path_buf)
 {
+  char *p = strchr(url, '/');
+  if (!p) {
+    strcpy(path_buf, "/");
+    strcpy(host_buf, url);
+    return;
+  }
+  strcpy(path_buf, p);
+  memmove(host_buf, url, strlen(url) - strlen(p));
+}
+
+static char *
+build_request_line(char *buf, char *host, char *path)
+{
+  strcpy(buf + strlen(buf), "GET ");
+  strcpy(buf + strlen(buf), path);
+  strcpy(buf + strlen(buf), " HTTP/1.1\r\nHost: ");
+  strcpy(buf + strlen(buf), host);
+  strcpy(buf + strlen(buf), "\r\n\r\n");
+  return buf;
+}
+
+uint
+http_get(const char *url)
+{
+  char *host = malloc(80);
+  char *path = malloc(80);
+  split_uri(url, host, path);
   uint32 ip_addr = dns_lookup(host);
   uint32 local_port = 2000;
   uint32 remote_port = 80;
@@ -18,44 +44,49 @@ http_get(char host[])
   }
 
   // send
-  char msg[] = "GET / HTTP/1.1\r\nHost: ";
-  strcpy(msg + strlen(msg), host);
-  strcpy(msg + strlen(msg), "\r\n\r\n");
   uint sent_bytes_count = 0;
-  uint total = strlen(msg);
+  char *req_line = malloc(1000);
+  build_request_line(req_line, host, path);
+  free(host);
+  free(path);
+  uint total = strlen(req_line);
   while (sent_bytes_count < total) {
-    uint bytes = write(fd, msg + sent_bytes_count, total - sent_bytes_count);
+    uint bytes = write(fd, req_line + sent_bytes_count, total - sent_bytes_count);
     if (bytes < 0) {
       fprintf(2, "http: write() failed\n");
       exit(1);
     }
     sent_bytes_count += bytes;
   }
+  free(req_line);
 
   // response
-  char resp[1700];
-  memset(resp, 0, sizeof(resp));
-  total = sizeof(resp) - 1;
-  uint received_bytes_count = 0;
-  while (received_bytes_count < total) {
-    uint bytes = read(fd, resp + received_bytes_count, total - received_bytes_count);
+  #define RESP_SIZE 4096
+  char *resp = malloc(RESP_SIZE * sizeof(char));
+  uint received_bytes = 0;
+  while (1) {
+    memset(resp, 0, RESP_SIZE * sizeof(char));
+    uint bytes = read(fd, resp, RESP_SIZE);
     if (bytes < 0) {
       fprintf(2, "http: read() failed\n");
       exit(1);
     }
-    if (bytes == 0 && received_bytes_count > 0)
+    if (bytes == 0 && received_bytes > 0)
       break;
     for (int i = 0; i < bytes; i++)
-      printf("%c", resp[received_bytes_count + i]);
-    received_bytes_count += bytes;
+      printf("%c", resp[i]);
+    received_bytes += bytes;
   }
+  printf("\n");
+
+  free(resp);
 
   close(fd);
   return 0;
 }
 
 void
-ping(uint16 sport, uint16 dport, int attempts, char msg[])
+ping(uint16 sport, uint16 dport, int attempts, char *msg)
 {
   // 10.0.2.2, which qemu remaps to the external host,
   // i.e. the machine you're running qemu on.

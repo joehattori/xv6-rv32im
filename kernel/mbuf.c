@@ -13,7 +13,7 @@ mbuf_alloc(uint headroom)
   if (m == 0)
     return 0;
   m->nxt = 0;
-  m->head = (char *)m->buf + headroom;
+  m->head = (char*) m->buf + headroom;
   m->len = 0;
   memset(m->buf, 0, sizeof(m->buf));
   return m;
@@ -48,8 +48,10 @@ char *
 mbuf_prepend(struct mbuf *m, uint len)
 {
   m->head -= len;
-  if (m->head < m->buf)
+  if (m->head < m->buf) {
+    printf("\nhead is preceding %d bytes.\n", m->buf - m->head);
     panic("mbuf_prepend");
+  }
   m->len += len;
   return m->head;
 }

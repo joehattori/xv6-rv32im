@@ -120,9 +120,8 @@ printf(char *fmt, ...)
 void
 puts(char *s, uint len)
 {
-  for (int i = 0; i < len; i++) {
+  for (int i = 0; i < len; i++)
     consputc(s[i]);
-  }
 }
 
 void
@@ -133,8 +132,7 @@ panic(char *s)
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
-  for(;;)
-    ;
+  while (1);
 }
 
 void

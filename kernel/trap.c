@@ -177,20 +177,19 @@ devintr()
 {
   uint32 scause = r_scause();
 
-  if((scause & 0x80000000) &&
-     (scause & 0xff) == 9){
+  if ((scause & 0x80000000) && (scause & 0xff) == 9) {
     // this is a supervisor external interrupt, via PLIC.
 
     // irq indicates which device interrupted.
     int irq = plic_claim();
 
-    if(irq == UART0_IRQ){
+    if (irq == UART0_IRQ) {
       uartintr();
-    } else if(irq == VIRTIO0_IRQ){
+    } else if (irq == VIRTIO0_IRQ) {
       virtio_disk_intr();
-    } else if(irq == E1000_IRQ){
+    } else if (irq == E1000_IRQ) {
       e1000_intr();
-    } else if(irq){
+    } else if (irq) {
       printf("unexpected interrupt irq=%d\n", irq);
     }
 
@@ -201,7 +200,7 @@ devintr()
       plic_complete(irq);
 
     return 1;
-  } else if(scause == 0x80000001){
+  } else if (scause == 0x80000001) {
     // software interrupt from a machine-mode timer interrupt,
     // forwarded by timervec in kernelvec.S.
 
@@ -218,4 +217,3 @@ devintr()
     return 0;
   }
 }
-

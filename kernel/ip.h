@@ -12,6 +12,9 @@ extern const uint8 GATEWAY_MAC_ADDR[6];
 #define IP_PROTO_UDP 17
 #define IP_PROTO_TCP 6
 
+#define USABLE_PORT_MIN 49152
+#define USABLE_PORT_MAX 65535
+
 struct ip_hdr {
   uint8  hdr: 4; // header field should come before version field because of the endian difference.
   uint8  ver: 4;

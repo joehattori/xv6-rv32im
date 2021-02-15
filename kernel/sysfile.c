@@ -489,14 +489,13 @@ sys_pipe(void)
 uint32
 sys_connect(void)
 {
-  uint32 remote_ip_addr, local_port, remote_port, type;
+  uint32 remote_ip_addr, remote_port, type;
   if (argint(0, (int*) &remote_ip_addr) < 0 ||
-    argint(1, (int*) &local_port) < 0 ||
     argint(2, (int*) &remote_port) < 0 ||
     argint(3, (int*) &type) < 0)
     return -1;
   struct file *f;
-  if (socket_alloc(&f, remote_ip_addr, local_port, remote_port, type) < 0)
+  if (socket_alloc(&f, remote_ip_addr, remote_port, type) < 0)
     return -1;
   uint fd = fdalloc(f);
   if (fd < 0) {

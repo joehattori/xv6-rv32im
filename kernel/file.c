@@ -10,6 +10,7 @@
 #include "spinlock.h"
 #include "sleeplock.h"
 #include "file.h"
+#include "socket.h"
 #include "stat.h"
 #include "proc.h"
 

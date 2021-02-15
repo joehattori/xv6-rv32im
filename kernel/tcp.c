@@ -34,11 +34,13 @@
 #define TCP_FLG_ISSET(x, y) ((x & 0x3f) & (y))
 
 #define TCP_CB_STATE_TX_ISREADY(x) (x->state == TCP_CB_STATE_ESTABLISHED || x->state == TCP_CB_STATE_CLOSE_WAIT)
+#define TCP_CB_STATE_RX_ISREADY(x) (x->state == TCP_CB_STATE_ESTABLISHED || x->state == TCP_CB_STATE_FIN_WAIT1 || x->state == TCP_CB_STATE_FIN_WAIT2)
+
 
 #define TCP_SOCKET_ISINVALID(x) (x < 0 || x >= TCP_CB_TABLE_SIZE)
 
 static struct spinlock lock;
-struct tcp_cb cb_table[TCP_CB_TABLE_SIZE];
+static struct tcp_cb cb_table[TCP_CB_TABLE_SIZE];
 
 static int
 tcp_txq_add(struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
@@ -122,92 +124,101 @@ tcp_tx(struct mbuf *m, struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uin
   return len;
 }
 
-static void
-tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
+static int
+tcp_tx_empty(struct tcp_cb *cb, uint32 seq, uint32 ack, uint8 flg, uint32 len)
 {
+  uint32 headroom = sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr);
+  struct mbuf *m = mbuf_alloc(headroom);
+  return tcp_tx(m, cb, seq, ack, flg, len);
+}
+
+static void
+tcp_incoming_event(struct tcp_cb *cb, struct tcp_hdr *hdr, uint len)
+{
+  uint32 hlen = (hdr->off >> 4) * 4;
+  uint32 plen = len - hlen;
+
   uint32 seq, ack;
 
-  uint hlen = ((hdr->off >> 4) << 2);
-  uint plen = len - hlen;
   switch (cb->state) {
-    case TCP_CB_STATE_CLOSED:
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
-        return;
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
-        seq = toggle_endian32(hdr->ack);
-        ack = 0;
-      } else {
-        seq = 0;
-        ack = toggle_endian32(hdr->seq);
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN))
-          ack++;
-        if (plen)
-          ack += plen;
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN))
-          ack++;
-      }
-      tcp_tx(m, cb, seq, ack, TCP_FLG_RST, 0);
+  case TCP_CB_STATE_CLOSED:
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
       return;
-    case TCP_CB_STATE_LISTEN:
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
-        return;
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
-        seq = toggle_endian32(hdr->ack);
-        ack = 0;
-        tcp_tx(m, cb, seq, ack, TCP_FLG_RST, 0);
-        return;
-      }
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
-        cb->rcv.nxt = toggle_endian32(hdr->seq) + 1;
-        cb->irs = toggle_endian32(hdr->seq);
-        cb->iss = (uint32) rand();
-        seq = cb->iss;
-        ack = cb->rcv.nxt;
-        tcp_tx(m, cb, seq, ack, TCP_FLG_SYN | TCP_FLG_ACK, 0);
-        cb->snd.nxt = cb->iss + 1;
-        cb->snd.una = cb->iss;
-        cb->state = TCP_CB_STATE_SYN_RCVD;
-      }
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
+      seq = toggle_endian32(hdr->ack);
+      ack = 0;
+    } else {
+      seq = 0;
+      ack = toggle_endian32(hdr->seq);
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN))
+        ack++;
+      if (plen)
+        ack += plen;
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN))
+        ack++;
+    }
+    tcp_tx_empty(cb, seq, ack, TCP_FLG_RST, 0);
+    return;
+  case TCP_CB_STATE_LISTEN:
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST))
       return;
-    case TCP_CB_STATE_SYN_SENT:
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
-        if (toggle_endian32(hdr->ack) <= cb->iss || toggle_endian32(hdr->ack) > cb->snd.nxt) {
-          if (!TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
-            seq = toggle_endian32(hdr->ack);
-            ack = 0;
-            tcp_tx(m, cb, seq, ack, TCP_FLG_RST, 0);
-          }
-          return;
-        }
-      }
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
-          // TCB close
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
+      seq = toggle_endian32(hdr->ack);
+      ack = 0;
+      tcp_tx_empty(cb, seq, ack, TCP_FLG_RST, 0);
+      return;
+    }
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
+      cb->rcv.nxt = toggle_endian32(hdr->seq) + 1;
+      cb->irs = toggle_endian32(hdr->seq);
+      cb->iss = (uint32) rand();
+      seq = cb->iss;
+      ack = cb->rcv.nxt;
+      tcp_tx_empty(cb, seq, ack, TCP_FLG_SYN | TCP_FLG_ACK, 0);
+      cb->snd.nxt = cb->iss + 1;
+      cb->snd.una = cb->iss;
+      cb->state = TCP_CB_STATE_SYN_RCVD;
+    }
+    return;
+  case TCP_CB_STATE_SYN_SENT:
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
+      if (toggle_endian32(hdr->ack) <= cb->iss || toggle_endian32(hdr->ack) > cb->snd.nxt) {
+        if (!TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
+          seq = toggle_endian32(hdr->ack);
+          ack = 0;
+          tcp_tx_empty(cb, seq, ack, TCP_FLG_RST, 0);
         }
         return;
       }
-      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
-        cb->rcv.nxt = toggle_endian32(hdr->seq) + 1;
-        cb->irs = toggle_endian32(hdr->seq);
-        if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
-          cb->snd.una = toggle_endian32(hdr->ack);
-          // delete TX queue
-          if (cb->snd.una > cb->iss) {
-            cb->state = TCP_CB_STATE_ESTABLISHED;
-            seq = cb->snd.nxt;
-            ack = cb->rcv.nxt;
-            tcp_tx(m, cb, seq, ack, TCP_FLG_ACK, 0);
-            wakeup(cb);
-          }
-          return;
-        }
-        seq = cb->iss;
-        ack = cb->rcv.nxt;
-        tcp_tx(m, cb, seq, ack, TCP_FLG_ACK, 0);
+    }
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_RST)) {
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
+        // TCB close
       }
       return;
-    default:
-      break;
+    }
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
+      cb->rcv.nxt = toggle_endian32(hdr->seq) + 1;
+      cb->irs = toggle_endian32(hdr->seq);
+      if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_ACK)) {
+        cb->snd.una = toggle_endian32(hdr->ack);
+        // delete TX queue
+        if (cb->snd.una > cb->iss) {
+          cb->state = TCP_CB_STATE_ESTABLISHED;
+          seq = cb->snd.nxt;
+          ack = cb->rcv.nxt;
+          tcp_tx_empty(cb, seq, ack, TCP_FLG_ACK, 0);
+          wakeup(cb);
+        }
+        return;
+      }
+      seq = cb->iss;
+      ack = cb->rcv.nxt;
+      tcp_tx_empty(cb, seq, ack, TCP_FLG_ACK, 0);
+    }
+    return;
+  default:
+    break;
   }
   if (toggle_endian32(hdr->seq) != cb->rcv.nxt) {
     // TODO
@@ -222,74 +233,74 @@ tcp_incoming_event(struct mbuf *m, struct tcp_cb *cb, struct tcp_hdr *hdr, uint 
     return;
   }
   switch (cb->state) {
-    case TCP_CB_STATE_SYN_RCVD:
-      if (cb->snd.una <= toggle_endian32(hdr->ack) && toggle_endian32(hdr->ack) <= cb->snd.nxt) {
-        cb->state = TCP_CB_STATE_ESTABLISHED;
-        queue_push(&cb->parent->backlog, cb, sizeof(*cb));
-        wakeup(cb->parent);
-      } else {
-        tcp_tx(m, cb, toggle_endian32(hdr->ack), 0, TCP_FLG_RST, 0);
-        break;
-      }
-    case TCP_CB_STATE_ESTABLISHED:
-    case TCP_CB_STATE_FIN_WAIT1:
-    case TCP_CB_STATE_FIN_WAIT2:
-    case TCP_CB_STATE_CLOSE_WAIT:
-    case TCP_CB_STATE_CLOSING:
-      if (cb->snd.una < toggle_endian32(hdr->ack) && toggle_endian32(hdr->ack) <= cb->snd.nxt) {
-        cb->snd.una = toggle_endian32(hdr->ack);
-      } else if (toggle_endian32(hdr->ack) > cb->snd.nxt) {
-        tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_ACK, 0);
-        return;
-      }
-      // send window update
-      if (cb->state == TCP_CB_STATE_FIN_WAIT1) {
-        if (toggle_endian32(hdr->ack) == cb->snd.nxt)
-          cb->state = TCP_CB_STATE_FIN_WAIT2;
-      } else if (cb->state == TCP_CB_STATE_CLOSING) {
-        if (toggle_endian32(hdr->ack) == cb->snd.nxt) {
-          cb->state = TCP_CB_STATE_TIME_WAIT;
-          wakeup(cb);
-        }
-        return;
-      }
+  case TCP_CB_STATE_SYN_RCVD:
+    if (cb->snd.una <= toggle_endian32(hdr->ack) && toggle_endian32(hdr->ack) <= cb->snd.nxt) {
+      cb->state = TCP_CB_STATE_ESTABLISHED;
+      queue_push(&cb->parent->backlog, cb, sizeof(*cb));
+      wakeup(cb->parent);
+    } else {
+      tcp_tx_empty(cb, toggle_endian32(hdr->ack), 0, TCP_FLG_RST, 0);
       break;
-    case TCP_CB_STATE_LAST_ACK:
-      wakeup(cb);
-      tcp_cb_clear(cb);
+    }
+  case TCP_CB_STATE_ESTABLISHED:
+  case TCP_CB_STATE_FIN_WAIT1:
+  case TCP_CB_STATE_FIN_WAIT2:
+  case TCP_CB_STATE_CLOSE_WAIT:
+  case TCP_CB_STATE_CLOSING:
+    if (cb->snd.una < toggle_endian32(hdr->ack) && toggle_endian32(hdr->ack) <= cb->snd.nxt) {
+      cb->snd.una = toggle_endian32(hdr->ack);
+    } else if (toggle_endian32(hdr->ack) > cb->snd.nxt) {
+      tcp_tx_empty(cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_ACK, 0);
       return;
+    }
+    // send window update
+    if (cb->state == TCP_CB_STATE_FIN_WAIT1) {
+      if (toggle_endian32(hdr->ack) == cb->snd.nxt)
+        cb->state = TCP_CB_STATE_FIN_WAIT2;
+    } else if (cb->state == TCP_CB_STATE_CLOSING) {
+      if (toggle_endian32(hdr->ack) == cb->snd.nxt) {
+        cb->state = TCP_CB_STATE_TIME_WAIT;
+        wakeup(cb);
+      }
+      return;
+    }
+    break;
+  case TCP_CB_STATE_LAST_ACK:
+    wakeup(cb);
+    tcp_cb_clear(cb);
+    return;
   }
   if (plen) {
     switch (cb->state) {
-      case TCP_CB_STATE_ESTABLISHED:
-      case TCP_CB_STATE_FIN_WAIT1:
-      case TCP_CB_STATE_FIN_WAIT2:
-        memmove(cb->window + (sizeof(cb->window) - cb->rcv.wnd), (uint8 *)hdr + hlen, plen);
-        cb->rcv.nxt = toggle_endian32(hdr->seq) + plen;
-        cb->rcv.wnd -= plen;
-        seq = cb->snd.nxt;
-        ack = cb->rcv.nxt;
-        tcp_tx(m, cb, seq, ack, TCP_FLG_ACK, 0);
-        wakeup(cb);
-        break;
+    case TCP_CB_STATE_ESTABLISHED:
+    case TCP_CB_STATE_FIN_WAIT1:
+    case TCP_CB_STATE_FIN_WAIT2:
+      memmove(cb->buf + (sizeof(cb->buf) - cb->rcv.wnd), (uint8*) hdr + hlen, plen);
+      cb->rcv.nxt = toggle_endian32(hdr->seq) + plen;
+      cb->rcv.wnd -= plen;
+      seq = cb->snd.nxt;
+      ack = cb->rcv.nxt;
+      tcp_tx_empty(cb, seq, ack, TCP_FLG_ACK, 0);
+      wakeup(cb);
+      break;
     }
   }
   if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN)) {
     cb->rcv.nxt++;
-    tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_ACK, 0);
+    tcp_tx_empty(cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_ACK, 0);
     switch (cb->state) {
-      case TCP_CB_STATE_SYN_RCVD:
-      case TCP_CB_STATE_ESTABLISHED:
-        cb->state = TCP_CB_STATE_CLOSE_WAIT;
-        wakeup(cb);
-        break;
-      case TCP_CB_STATE_FIN_WAIT1:
-        cb->state = TCP_CB_STATE_FIN_WAIT2;
-        break;
-      case TCP_CB_STATE_FIN_WAIT2:
-        cb->state = TCP_CB_STATE_TIME_WAIT;
-        wakeup(cb);
-        break;
+    case TCP_CB_STATE_SYN_RCVD:
+    case TCP_CB_STATE_ESTABLISHED:
+      cb->state = TCP_CB_STATE_CLOSE_WAIT;
+      wakeup(cb);
+      break;
+    case TCP_CB_STATE_FIN_WAIT1:
+      cb->state = TCP_CB_STATE_FIN_WAIT2;
+      break;
+    case TCP_CB_STATE_FIN_WAIT2:
+      cb->state = TCP_CB_STATE_TIME_WAIT;
+      wakeup(cb);
+      break;
     }
   }
   return;
@@ -330,19 +341,16 @@ tcp_rx(struct mbuf *m, uint16 len, struct ip_hdr *iphdr)
     cb->port = lcb->port;
     cb->peer.addr = src_ip_addr;
     cb->peer.port = src_port;
-    cb->rcv.wnd = sizeof(cb->window);
+    cb->rcv.wnd = sizeof(cb->buf);
     cb->parent = lcb;
   }
   uint8 data_offset = hdr->off >> 4;
-  // 1 word = 4 bytes
-  uint16 diff = data_offset * 4 - sizeof(*hdr);
   if (data_offset < 5 || 15 < data_offset)
     printf("invalid data offset in tcp header.\n");
+  uint16 diff = data_offset * 4 - sizeof(*hdr);
   mbuf_trim(m, diff);
-  uint default_size = sizeof(struct ethernet_hdr) + sizeof(struct ip_hdr) + sizeof(struct tcp_hdr);
-  tcp_incoming_event(mbuf_alloc(default_size), cb, hdr, len - diff);
+  tcp_incoming_event(cb, hdr, len - diff);
   release(&lock);
-  socket_recv_tcp(m, toggle_endian32(src_ip_addr), toggle_endian16(src_port), toggle_endian16(dst_port));
 }
 
 int
@@ -373,21 +381,21 @@ tcp_close(struct mbuf *m, int soc)
     return -1;
   }
   switch (cb->state) {
-    case TCP_CB_STATE_SYN_RCVD:
-    case TCP_CB_STATE_ESTABLISHED:
-      tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
-      cb->state = TCP_CB_STATE_FIN_WAIT1;
-      cb->snd.nxt++;
-      sleep(cb, &lock);
-      break;
-    case TCP_CB_STATE_CLOSE_WAIT:
-      tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
-      cb->state = TCP_CB_STATE_LAST_ACK;
-      cb->snd.nxt++;
-      sleep(cb, &lock);
-      break;
-    default:
-      break;
+  case TCP_CB_STATE_SYN_RCVD:
+  case TCP_CB_STATE_ESTABLISHED:
+    tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
+    cb->state = TCP_CB_STATE_FIN_WAIT1;
+    cb->snd.nxt++;
+    sleep(cb, &lock);
+    break;
+  case TCP_CB_STATE_CLOSE_WAIT:
+    tcp_tx(m, cb, cb->snd.nxt, cb->rcv.nxt, TCP_FLG_FIN | TCP_FLG_ACK, 0);
+    cb->state = TCP_CB_STATE_LAST_ACK;
+    cb->snd.nxt++;
+    sleep(cb, &lock);
+    break;
+  default:
+    break;
   }
   tcp_cb_clear(cb);
   release(&lock);
@@ -395,7 +403,7 @@ tcp_close(struct mbuf *m, int soc)
 }
 
 int
-tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 local_port)
+tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port)
 {
   if (TCP_SOCKET_ISINVALID(soc))
     return -1;
@@ -407,11 +415,28 @@ tcp_connect(struct mbuf *m, int soc, uint32 dst_ip, uint32 dst_port, uint32 loca
     return -1;
   }
 
-  if (!cb->port)
-    cb->port = toggle_endian16((uint16) local_port);
+  if (!cb->port) {
+    int offset = time(0) % 1024;
+    for (uint port = USABLE_PORT_MIN + offset; port <= USABLE_PORT_MAX; port++) {
+      struct tcp_cb *tmp;
+      for (tmp = cb_table; tmp < cb_table + TCP_CB_TABLE_SIZE; tmp++) {
+        if (tmp->used && tmp->port == toggle_endian16(port)) {
+          break;
+        }
+      }
+      if (tmp == cb_table + TCP_CB_TABLE_SIZE) {
+        cb->port = toggle_endian16(port);
+        break;
+      }
+    }
+    if (!cb->port) {
+      release(&lock);
+      return -1;
+    }
+  }
   cb->peer.addr = toggle_endian32(dst_ip);
   cb->peer.port = toggle_endian16((uint16) dst_port);
-  cb->rcv.wnd = sizeof(cb->window);
+  cb->rcv.wnd = sizeof(cb->buf);
   cb->iss = (uint32) rand();
   tcp_tx(m, cb, cb->iss, 0, TCP_FLG_SYN, 0);
   cb->snd.nxt = cb->iss + 1;
@@ -444,8 +469,38 @@ tcp_send(struct mbuf *m, int soc, uint len)
   return 0;
 }
 
+int tcp_read(struct socket *s, uint32 addr, uint32 size)
+{
+  uint soc = s->tcp_cb_offset;
+
+  if (TCP_SOCKET_ISINVALID(soc))
+    return -1;
+  acquire(&lock);
+  struct tcp_cb *cb = &cb_table[soc];
+  if (!cb->used) {
+    release(&lock);
+    return -1;
+  }
+  uint total;
+  while (!(total = sizeof(cb->buf) - cb->rcv.wnd)) {
+    if (!TCP_CB_STATE_RX_ISREADY(cb)) {
+      release(&lock);
+      return 0;
+    }
+    sleep(cb, &lock);
+  }
+  uint len = size < total ? size : total;
+  struct proc *p = myproc();
+  if (copyout(p->pagetable, addr, (char*) cb->buf, len) < 0)
+    return -1;
+  memmove(cb->buf, cb->buf + len, total - len);
+  cb->rcv.wnd += len;
+  release(&lock);
+  return len;
+}
+
 void
 tcp_init()
 {
-  initlock(&lock, "lock");
+  initlock(&lock, "tcplock");
 }

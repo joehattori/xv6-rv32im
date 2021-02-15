@@ -1,13 +1,13 @@
 #include "kernel/types.h"
 
-#include "dns.h"
+#include "netlib.h"
 #include "user.h"
 
 // Encode a DNS name
 static void
 encode_qname(char *qn, char *host)
 {
-  char *l = host; 
+  char *l = host;
   
   for(char *c = host; c < host+strlen(host)+1; c++) {
     if(*c == '.') {
@@ -154,6 +154,7 @@ dns_lookup(char *name)
 
   strcpy(name + strlen(name), ".");
   int len = dns_req(obuf, name);
+  strcpy(name + strlen(name) - 1, "\0");
   
   if(write(fd, obuf, len) < 0){
     fprintf(2, "dns: send() failed\n");

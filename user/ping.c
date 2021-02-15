@@ -1,7 +1,6 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 
-#include "dns.h"
 #include "netlib.h"
 #include "user.h"
 
