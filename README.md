@@ -14,3 +14,31 @@ Otherwise,
 $ make run-docker
 ```
 will pull a docker image with necessary tools and starts a container.
+
+# curl
+`curl`-like program will run! It prints the response to the GET request to the specified url.
+```bash
+$ make qemu
+# in qemu environment
+$ curl example.com
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Age: 575273
+Cache-Control: max-age=604800
+Content-Type: text/html; charset=UTF-8
+Date: Wed, 03 Mar 2021 01:19:10 GMT
+Etag: "3147526947"
+Expires: Wed, 10 Mar 2021 01:19:10 GMT
+Last-Modified: Thu, 17 Oct 2019 07:18:26 GMT
+Server: ECS (sjc/4E73)
+Vary: Accept-Encoding
+X-Cache: HIT
+Content-Length: 1256
+
+<!doctype html>
+<html>
+<head>
+    <title>Example Domain</title>
+...
+```
+Currently HTTPS is not supported.
