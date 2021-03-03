@@ -16,7 +16,7 @@ $ make run-docker
 will pull a docker image with necessary tools and starts a container.
 
 # curl
-`curl`-like program will run! It prints the response to the GET request to the specified url.
+`curl`-like program will run! It prints the response of the GET request to the specified url.
 ```bash
 $ make qemu
 # in qemu environment
